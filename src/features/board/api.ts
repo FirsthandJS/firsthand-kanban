@@ -7,12 +7,12 @@
  * testable without a DOM.
  */
 import { useAction, useResource } from '@firsthandjs/data';
-import BoardDocument from '@/gql/board.gql';
-import CreateCardDocument from '@/gql/create-card.gql';
-import DeleteCardDocument from '@/gql/delete-card.gql';
-import EditCardDocument from '@/gql/edit-card.gql';
-import MoveCardDocument from '@/gql/move-card.gql';
-import RenameBoardDocument from '@/gql/rename-board.gql';
+import BoardDocument from '@/features/board/gql/board.gql';
+import CreateCardDocument from '@/features/board/gql/create-card.gql';
+import DeleteCardDocument from '@/features/board/gql/delete-card.gql';
+import EditCardDocument from '@/features/board/gql/edit-card.gql';
+import MoveCardDocument from '@/features/board/gql/move-card.gql';
+import RenameBoardDocument from '@/features/boards/gql/rename-board.gql';
 import { graphql } from '@/shared/api/client';
 import type { Kind } from '@/shared/ui/theme';
 

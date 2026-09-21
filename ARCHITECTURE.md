@@ -26,31 +26,34 @@ src/
     session/              who is signed in
       model.ts            token and account, as signals; sign in, sign out
       api.ts              logIn, register — the operations, as hooks
+      gql/                the documents only this feature sends
+      locales/            the words only this feature says
       pages/sign-in.tsx   the page
-      components/…        the form, and nothing else uses it
 
     boards/               the list of boards
       api.ts              useBoards, useBoardActions
+      gql/ locales/
       pages/boards.tsx    lays out the page; renders tiles
-      components/         board-tile, board-form, delete-confirm
+      components/         tile, form
 
     board/                one board
-      api.ts              useBoard, useCardActions
+      api.ts              useBoard, useBoardActions
       model.ts            the drag: what is held, what it is over
-      pages/board.tsx     lays out the columns
-      components/         lane, card, card-composer, board-title, status
+      gql/ locales/
+      pages/board.tsx     lays out the lanes
+      components/         lane, card, composer, title, status
 
   shared/                 what more than one feature needs
     api/                  the urql client, the cache, the 401 seam
-    i18n/                 the translator, and locales/<language>/<feature>.json
+    i18n/                 the translator and the plurals; the words are in the features
     ui/                   the theme, the motion token, common styled pieces
-
-  gql/                    one operation per file, tags as directives
 ```
 
-`gql/` stays flat and central because a GraphQL document is defined by the
-schema rather than by which screen happens to use it — and because the codegen
-points at one directory.
+**Everything a feature needs is inside it**, including its GraphQL documents
+and its words. `codegen.ts` points at `src/features/**/gql/*.gql` and the
+translator imports each feature's `locales/en.json`, so adding a feature adds a
+folder and deleting one deletes everything it owned — no central file to prune
+afterwards and no orphaned key nobody dares remove.
 
 ## Where the logic goes
 

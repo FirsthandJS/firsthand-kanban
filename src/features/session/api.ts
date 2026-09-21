@@ -7,8 +7,8 @@
  * which is why swapping the transport does not touch a single component.
  */
 import { useAction } from '@firsthandjs/data';
-import LogInDocument from '@/gql/log-in.gql';
-import RegisterDocument from '@/gql/register.gql';
+import LogInDocument from '@/features/session/gql/log-in.gql';
+import RegisterDocument from '@/features/session/gql/register.gql';
 import { graphql } from '@/shared/api/client';
 import { signedIn } from '@/features/session/model';
 

@@ -75,21 +75,20 @@ src/
     session/                who is signed in
       api.ts                logIn and register, and what opening a session means
       model.ts              token and account, as signals
-      pages/ locales/
+      gql/ pages/ locales/
     boards/                 the list
       api.ts                useBoards, useBoardActions — every rule about a name
       components/           tile, form
-      pages/ locales/
+      gql/ pages/ locales/
     board/                  one board
       api.ts                useBoard, useBoardActions — add, move, edit, remove
       model.ts              the drag: what is held, what it is over
-      components/           lane, card, composer, title
-      pages/ locales/
+      components/           lane, card, composer, title, status
+      gql/ pages/ locales/
   shared/
     api/                    the urql client, the cache, the 401 seam
     i18n/                   the translator, plurals, the late-loaded language
     ui/                     the theme and the motion token
-  gql/                      one operation per file, tags as directives
 ```
 
 Three rules, written out in [ARCHITECTURE.md](ARCHITECTURE.md): a component

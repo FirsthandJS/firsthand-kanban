@@ -8,10 +8,10 @@
  * fourth.
  */
 import { useAction, useResource } from '@firsthandjs/data';
-import BoardsDocument from '@/gql/boards.gql';
-import CreateBoardDocument from '@/gql/create-board.gql';
-import DeleteBoardDocument from '@/gql/delete-board.gql';
-import RenameBoardDocument from '@/gql/rename-board.gql';
+import BoardsDocument from '@/features/boards/gql/boards.gql';
+import CreateBoardDocument from '@/features/boards/gql/create-board.gql';
+import DeleteBoardDocument from '@/features/boards/gql/delete-board.gql';
+import RenameBoardDocument from '@/features/boards/gql/rename-board.gql';
 import { fresh, graphql } from '@/shared/api/client';
 
 /** The boards this account owns. */
