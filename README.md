@@ -7,13 +7,22 @@ everything in memory.
 It exists to show the framework doing a whole job: sign in, pick a board, move
 cards, and watch what the data layer does about it.
 
+## Running it
+
 ```bash
 npm install
 npm run dev
 ```
 
-Register with any address you like. The server holds accounts, boards and cards
-in a few `Map`s, and a restart forgets all of it.
+That is everything. **There is no second server to start**: the GraphQL API
+runs inside the Vite process as a plugin, so `npm run dev` serves the
+application and the API together, and `npm run preview` does the same for a
+production build.
+
+Then open the URL it prints and **register** — any name and email address you
+like, and a password of **at least eight characters**. Nothing is sent
+anywhere: accounts, boards and cards live in a few `Map`s in that process, and
+stopping it forgets all of them.
 
 ## What there is to look at
 
@@ -81,7 +90,10 @@ mimed, because faking them would teach the wrong lesson:
   plain text is a demo somebody copies.
 - **An unauthenticated request answers 401**, not a 200 with an error in the
   body. That is what lets the client treat a dead token as a dead session in
-  one place rather than one per operation.
+  one place rather than one per operation. It is the *only* non-200: everything
+  else a person can get wrong — a short password, an address already
+  registered, the wrong password — is an ordinary GraphQL error, because those
+  are messages to show rather than transport failures.
 
 There is a deliberate 180 ms of latency, so that loading, reloading and the
 cache are visible rather than theoretical.

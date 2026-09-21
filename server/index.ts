@@ -65,8 +65,20 @@ const slowly = async <T>(value: T): Promise<T> => {
   return value;
 };
 
-const fail = (message: string, status = 400): never => {
-  throw new GraphQLError(message, { extensions: { http: { status } } });
+/**
+ * A domain error, which is an ordinary GraphQL error: status 200, `errors` in
+ * the body. "Use at least eight characters" is something the client has to
+ * show a person, not a transport failure.
+ *
+ * The exception is authentication, and it is the only one: a rejected token
+ * answers **401**, which is what lets the client end a session in one place
+ * instead of one check per operation.
+ */
+const fail = (message: string, status?: number): never => {
+  throw new GraphQLError(
+    message,
+    status === undefined ? undefined : { extensions: { http: { status } } },
+  );
 };
 
 // ---------------------------------------------------------------------------
@@ -135,7 +147,7 @@ function seed(owner: string): Board {
 const ownedBoard = (accountId: string, id: string): Board => {
   const board = boards.get(id);
   if (board === undefined || board.owner !== accountId) {
-    return fail(`No board ${id}`, 404);
+    return fail(`No board ${id}`);
   }
   return board;
 };
@@ -147,7 +159,7 @@ const findCard = (board: Board, cardId: string): { column: Column; at: number } 
       return { column, at };
     }
   }
-  return fail(`No card ${cardId}`, 404);
+  return fail(`No card ${cardId}`);
 };
 
 // ---------------------------------------------------------------------------
@@ -167,8 +179,13 @@ const schema = createSchema({
         const owner = require_(context);
         return slowly([...boards.values()].filter((board) => board.owner === owner));
       },
-      board: (_p: unknown, args: { id: string }, context: { accountId: string | null }) =>
-        slowly(ownedBoard(require_(context), args.id)),
+      board: (_p: unknown, args: { id: string }, context: { accountId: string | null }) => {
+        // `null` rather than an error: the schema says this may be nothing,
+        // and "that board is not here" is a page, not a failure.
+        const owner = require_(context);
+        const board = boards.get(args.id);
+        return slowly(board === undefined || board.owner !== owner ? null : board);
+      },
     },
     Mutation: {
       register: (_p: unknown, args: { name: string; email: string; password: string }) => {
@@ -220,7 +237,7 @@ const schema = createSchema({
         const board = ownedBoard(require_(context), args.boardId);
         const column = board.columns.find((candidate) => candidate.id === args.columnId);
         if (column === undefined) {
-          return fail(`No column ${args.columnId}`, 404);
+          return fail(`No column ${args.columnId}`);
         }
         const created = card(args.title.trim(), args.kind);
         column.cards.push(created);
@@ -235,7 +252,7 @@ const schema = createSchema({
         const { column, at } = findCard(board, args.cardId);
         const target = board.columns.find((candidate) => candidate.id === args.toColumnId);
         if (target === undefined) {
-          return fail(`No column ${args.toColumnId}`, 404);
+          return fail(`No column ${args.toColumnId}`);
         }
         const [moved] = column.cards.splice(at, 1);
         target.cards.splice(Math.max(0, Math.min(args.toIndex, target.cards.length)), 0, moved!);

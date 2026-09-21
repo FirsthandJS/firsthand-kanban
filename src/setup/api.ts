@@ -20,6 +20,7 @@
  * earn its keep. This application needs none, so it does not have one.
  */
 import {
+  FirsthandHttpError,
   createCacheClient,
   createFetchClient,
   resolveTags,
@@ -96,19 +97,49 @@ function send<T, V extends Variables>(
     request.tags?.(
       ...resolveTags(kind === 'mutation' ? document.invalidates : document.tags, variables),
     );
-    const answer = await http.post<Answer<T>>('/graphql', {
-      json: { query: document.source, variables },
-      // A POST is not identified by where it was sent, so a reading one has to
-      // say what it is: the operation and its variables, through `stableKey`,
-      // which gives the same string whatever order they were written in. A
-      // mutation says nothing, and is therefore never cached.
-      cacheKey: kind === 'query' ? `${document.operation}(${stableKey(variables)})` : false,
-    })(request);
+    const answer = await ask<T>(request, document, variables);
     if (answer.errors !== undefined && answer.errors.length > 0) {
       throw new GraphQLFailure(answer.errors);
     }
     return answer.data as T;
   };
+}
+
+/**
+ * Sends one operation, and turns a failed status that carries GraphQL errors
+ * back into GraphQL errors.
+ *
+ * A server may answer a domain error with a 4xx — ours answers 401 for a dead
+ * token on purpose — and then the body still says what went wrong. Letting the
+ * `FirsthandHttpError` through would put "HTTP 400 for /graphql" on the screen
+ * where "Use at least eight characters" belongs.
+ */
+async function ask<T>(
+  request: DataRequest,
+  document: GraphQLDocument<T, Variables>,
+  variables: Variables,
+): Promise<Answer<T>> {
+  try {
+    return await http.post<Answer<T>>('/graphql', {
+      json: { query: document.source, variables },
+      // A POST is not identified by where it was sent, so a reading one has to
+      // say what it is: the operation and its variables, through `stableKey`,
+      // which gives the same string whatever order they were written in. A
+      // mutation says nothing, and is therefore never cached.
+      cacheKey: document.kind === 'query' ? `${document.operation}(${stableKey(variables)})` : false,
+    })(request);
+  } catch (error: unknown) {
+    const body = error instanceof FirsthandHttpError ? error.body : undefined;
+    if (isAnswer(body)) {
+      return body as Answer<T>;
+    }
+    throw error;
+  }
+}
+
+/** Whether a parsed body is a GraphQL answer rather than something else. */
+function isAnswer(body: unknown): boolean {
+  return typeof body === 'object' && body !== null && 'errors' in body;
 }
 
 /**

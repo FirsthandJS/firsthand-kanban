@@ -82,8 +82,8 @@ export const SignIn = component(() => {
     <Card>
       <Title>{mode.value === 'sign-in' ? 'Sign in' : 'Create an account'}</Title>
       <Intro>
-        Everything here lives in the server's memory: register with any address you like, and a
-        restart forgets you.
+        Everything here lives in the server's memory: register with any address you like — nothing
+        is sent anywhere — and a restart forgets you.
       </Intro>
 
       <form onSubmit={(event: Event) => void submit(event)}>
@@ -116,6 +116,7 @@ export const SignIn = component(() => {
               value={password.value}
               required
               password-toggle
+              hint={mode.value === 'register' ? 'At least eight characters.' : undefined}
               autocomplete="current-password"
               onInput={(event: Event) => (password.value = valueOf(event))}
             />
