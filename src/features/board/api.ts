@@ -103,12 +103,19 @@ export function useBoardActions(id: BoardId, lanes: () => readonly Lane[]) {
       });
     },
 
-    /** Renames a card, unless the title is empty or unchanged. */
-    edit: (cardId: string, title: string, current: string): void => {
+    /**
+      * Renames a card, unless the title is empty or unchanged.
+      *
+      * Answers whether the new title is now the truth: a card shows what was
+      * typed while the mutation is out, and has to know to put it back if it
+      * fails. Nothing to do is `true` — there is nothing to put back.
+      */
+    edit: async (cardId: string, title: string, current: string): Promise<boolean> => {
       const wanted = title.trim();
-      if (wanted !== '' && wanted !== current) {
-        void edit.run({ cardId, title: wanted });
+      if (wanted === '' || wanted === current) {
+        return true;
       }
+      return (await edit.run({ cardId, title: wanted })) !== undefined;
     },
 
     remove: (cardId: string): void => {

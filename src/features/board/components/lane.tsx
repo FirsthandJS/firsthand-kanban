@@ -31,7 +31,7 @@ export type LaneProps = {
   readonly onAdd: (title: string, kind: Kind) => Promise<boolean>;
   readonly onMove: (cardId: string, index: number) => void;
   readonly onShift: (cardId: string, index: number, direction: 1 | -1) => void;
-  readonly onEdit: (cardId: string, title: string, current: string) => void;
+  readonly onEdit: (cardId: string, title: string, current: string) => Promise<boolean>;
   readonly onDelete: (cardId: string) => void;
 };
 

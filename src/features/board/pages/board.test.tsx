@@ -23,6 +23,8 @@ const original = globalThis.fetch;
 /** One board, in the shape the schema describes, mutated by the "server". */
 let board = seed();
 let sent: string[] = [];
+/** Set by the one test that wants the server to say no. */
+let refuseEdit = false;
 
 function seed() {
   return {
@@ -77,6 +79,7 @@ async function operationOf(input: unknown, init: RequestInit | undefined) {
 beforeEach(() => {
   sent = [];
   board = seed();
+  refuseEdit = false;
   cache.forget();
   signedIn({
     token: 't',
@@ -96,6 +99,11 @@ beforeEach(() => {
       return Promise.resolve(new Response(JSON.stringify({ data: { moveCard: board } })));
     }
     if (operation === 'EditCard') {
+      if (refuseEdit) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ errors: [{ message: 'Not allowed' }] })),
+        );
+      }
       const card = board.columns.flatMap((column) => column.cards)[0]!;
       card.title = String(variables['title'] ?? card.title);
       return Promise.resolve(new Response(JSON.stringify({ data: { editCard: card } })));
@@ -195,6 +203,27 @@ it('renames a card in place', async () => {
   await vi.waitFor(() => {
     expect(view.text()).toContain('Write the reference');
   });
+});
+
+it('puts the old title back when the rename is refused', async () => {
+  refuseEdit = true;
+  const view = await open();
+
+  view.get<HTMLButtonElement>(`button[aria-label="${t('board.edit')}"]`).click();
+  const field = view.get<HTMLTextAreaElement>('[data-card] textarea');
+  field.value = 'Write the reference';
+  field.dispatchEvent(new Event('input', { bubbles: true }));
+  view.get('[data-card] form').dispatchEvent(new Event('submit', { bubbles: true }));
+
+  // The new title goes up immediately — that is the point of showing it before
+  // the server answers — and it has to come down again when the answer is no.
+  await vi.waitFor(() => {
+    expect(sent).toContain('EditCard');
+  });
+  await vi.waitFor(() => {
+    expect(view.text()).toContain('Write the guide');
+  });
+  expect(view.text()).not.toContain('Write the reference');
 });
 
 it('renames the board from its title', async () => {

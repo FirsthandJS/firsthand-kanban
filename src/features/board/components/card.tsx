@@ -12,7 +12,9 @@
  * **The new title is on screen before the server has answered.** The board
  * reloads after the mutation, and until it does, `pending` is what is shown —
  * otherwise a card flashes back to its old text for as long as the round trip
- * takes.
+ * takes. Which is why `onRename` answers: an optimistic title that nobody can
+ * take back is a lie the card tells until the page is reloaded, so a refused
+ * rename clears it.
  *
  * **A textarea's value is its content, not an attribute.** It is set through
  * the element itself, which is also where the focus and the first measurement
@@ -35,7 +37,8 @@ export type CardProps = {
   readonly onBack: () => void;
   readonly onForward: () => void;
   readonly onDelete: () => void;
-  readonly onRename: (title: string) => void;
+  /** Answers whether it stuck: `false` puts the old title back. */
+  readonly onRename: (title: string) => Promise<boolean>;
   readonly onDragStart: (event: DragEvent) => void;
   readonly onDragEnd: () => void;
 };
@@ -63,10 +66,17 @@ export const CardTile = component<CardProps>((props) => {
   const save = (): void => {
     const next = draft.peek().trim();
     editing.value = false;
-    if (next !== '' && next !== shown.peek()) {
-      pending.value = next;
-      props.onRename(next);
+    if (next === '' || next === shown.peek()) {
+      return;
     }
+    pending.value = next;
+    void props.onRename(next).then((saved) => {
+      if (!saved) {
+        // The server refused it. Stop shadowing the title, or the card shows
+        // a change that was never made until the page is reloaded.
+        pending.value = null;
+      }
+    });
   };
 
   const cancel = (): void => {
