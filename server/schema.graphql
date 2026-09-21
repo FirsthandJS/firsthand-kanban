@@ -49,7 +49,9 @@ type Mutation {
   register(name: String!, email: String!, password: String!): Session!
   logIn(email: String!, password: String!): Session!
   createBoard(name: String!): Board!
+  renameBoard(boardId: ID!, name: String!): Board!
   createCard(boardId: ID!, columnId: ID!, title: String!, kind: Kind!): Card!
+  editCard(boardId: ID!, cardId: ID!, title: String, kind: Kind): Card!
   moveCard(boardId: ID!, cardId: ID!, toColumnId: ID!, toIndex: Int!): Board!
   deleteCard(boardId: ID!, cardId: ID!): ID!
 }

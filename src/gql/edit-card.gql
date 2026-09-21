@@ -1,0 +1,9 @@
+# One tag, one board: renaming a card here leaves every other board alone.
+mutation EditCard($boardId: ID!, $cardId: ID!, $title: String, $kind: Kind)
+@invalidates(name: "board", id: $boardId) {
+  editCard(boardId: $boardId, cardId: $cardId, title: $title, kind: $kind) {
+    id
+    title
+    kind
+  }
+}

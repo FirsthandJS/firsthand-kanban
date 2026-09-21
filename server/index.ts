@@ -229,6 +229,39 @@ const schema = createSchema({
         boards.set(board.id, board);
         return slowly(board);
       },
+      renameBoard: (
+        _p: unknown,
+        args: { boardId: string; name: string },
+        context: { accountId: string | null },
+      ) => {
+        const board = ownedBoard(require_(context), args.boardId);
+        const name = args.name.trim();
+        if (name === '') {
+          return fail('A board needs a name');
+        }
+        board.name = name;
+        return slowly(board);
+      },
+      editCard: (
+        _p: unknown,
+        args: { boardId: string; cardId: string; title?: string; kind?: Kind },
+        context: { accountId: string | null },
+      ) => {
+        const board = ownedBoard(require_(context), args.boardId);
+        const { column, at } = findCard(board, args.cardId);
+        const held = column.cards[at]!;
+        if (args.title !== undefined) {
+          const title = args.title.trim();
+          if (title === '') {
+            return fail('A card needs a title');
+          }
+          held.title = title;
+        }
+        if (args.kind !== undefined) {
+          held.kind = args.kind;
+        }
+        return slowly(held);
+      },
       createCard: (
         _p: unknown,
         args: { boardId: string; columnId: string; title: string; kind: Kind },

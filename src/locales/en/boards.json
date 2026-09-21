@@ -1,0 +1,13 @@
+{
+  "title": "Your boards",
+  "new": "New board",
+  "newPlaceholder": "Name it",
+  "add": "Add",
+  "cancel": "Cancel",
+  "cards": "cards",
+  "cards_one": "card",
+  "emptyTitle": "Nothing here yet.",
+  "emptyBody": "Name a board above and it will appear — the list invalidates itself.",
+  "rename": "Rename board",
+  "open": "Open board"
+}

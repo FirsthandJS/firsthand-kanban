@@ -1,63 +1,48 @@
 /**
- * The transport: one fetch client, one cache, and GraphQL on top of both.
+ * The transport: urql, bound to the data layer by `@firsthandjs/data-urql`.
  *
- * There is no GraphQL client library here. `@firsthandjs/data-urql` and
- * `-apollo` exist for the applications that want one — exchanges, normalised
- * caches, subscriptions — and this application wants none of that, so what it
- * has instead is the twenty lines below. Swapping in urql later is one file:
- * `createUrqlClient(client).query(Document, variables)` has the same shape as
- * `graphql.query(...)` does here, deliberately.
+ * The client is built here, with everything a GraphQL client is for — the URL,
+ * the exchanges, the headers, the one place a rejected token ends a session.
+ * `createUrqlClient` then binds two of its methods and adds what the resource
+ * layer needs: the abort signal, the cache, and the document's own `@tag` /
+ * `@invalidates` directives reported into the request.
+ *
+ * Nothing in this file parses GraphQL, posts JSON or unwraps an answer. That
+ * was twenty lines once, and twenty lines is exactly how a project ends up
+ * maintaining a client it never meant to write.
  *
  * Two seams carry authentication, and each is a function:
  *
- *   `headers`  is called **per request**, so the current token goes out with
- *              every one of them and nothing is rebuilt when it changes.
- *   `fetch`    wraps the request. A rejected token ending the session is four
- *              lines of it.
+ *   `headers`     is read **per request**, so the current token goes out with
+ *                 every one of them and nothing is rebuilt when it changes.
+ *   `fetch`       wraps the request. A rejected token ending the session is
+ *                 four lines of it, and urql takes the wrapper as an option.
  *
- * Silent token refresh, retry-with-backoff or request queueing would all go
- * in that second function, and at three of them a pipeline would start to
- * earn its keep. This application needs none, so it does not have one.
+ * Silent token refresh or retry-with-backoff would go in that wrapper, and at
+ * three of them urql's exchanges would start to earn their keep. This
+ * application needs none, so it has `fetchExchange` and nothing else.
  */
-import {
-  FirsthandHttpError,
-  createCacheClient,
-  createFetchClient,
-  resolveTags,
-  stableKey,
-  type DataRequest,
-  type DocumentArguments,
-  type GraphQLDocument,
-  type Loader,
-  type Variables,
-} from '@firsthandjs/data';
+import { Client, fetchExchange } from '@urql/core';
+import { createCacheClient } from '@firsthandjs/data';
+import { createUrqlClient } from '@firsthandjs/data-urql';
 import { account, signedOut, token } from './session';
 
 /**
  * The one cache, at the transport edge.
  *
- * Ten seconds: long enough that moving between the board list and a board is
- * instant, short enough that a second tab is not looking at yesterday. A
- * mutation does not wait for it — an invalidation runs the loader with
- * `force`, which drops the entry rather than being answered out of it.
+ * Ours rather than urql's `cacheExchange`, and that is the decision to notice:
+ * a normalising cache and a store of resources are two answers to "what is the
+ * current state", and two answers disagree. So urql is the transport, the
+ * resources are the state, and this holds the answers for ten seconds —
+ * long enough that walking from the board list into a board and back is free.
+ *
+ * An invalidation reaches through it, because an invalidated run is `force`d.
  */
 export const cache = createCacheClient({ ttl: 10_000 });
 
-export const http = createFetchClient({
-  cache,
-  // Whose answers these are. The client would work this out from the
-  // authorization header on its own; saying it explicitly means the cache is
-  // keyed by *account*, so two people using this browser in one session can
-  // never read each other's boards — and it keeps working if the token is
-  // ever refreshed without the account changing.
-  scope: () => account.peek()?.id ?? 'anonymous',
-  headers: () => {
-    // Read here rather than subscribed to: this happens while a request is
-    // being sent, and a resource that depended on the token would re-send
-    // every query on a sign-out — with an empty header, on its way out.
-    const current = token.peek();
-    return current === null ? {} : { authorization: `Bearer ${current}` };
-  },
+const client = new Client({
+  url: '/graphql',
+  exchanges: [fetchExchange],
   fetch: async (input, init) => {
     const response = await fetch(input, init);
     // The server answers 401 rather than a 200 with an error in the body,
@@ -70,93 +55,18 @@ export const http = createFetchClient({
   },
 });
 
-/** What a GraphQL endpoint answers with. */
-interface Answer<T> {
-  readonly data?: T;
-  readonly errors?: readonly { readonly message: string }[];
-}
-
-/** Thrown when the server reports errors rather than data. */
-export class GraphQLFailure extends Error {
-  constructor(readonly errors: readonly { readonly message: string }[]) {
-    super(errors[0]?.message ?? 'The server reported an error');
-    this.name = 'GraphQLFailure';
-  }
-}
-
-function send<T, V extends Variables>(
-  kind: 'query' | 'mutation',
-  document: GraphQLDocument<T, V>,
-  rest: DocumentArguments<V>,
-): Loader<T> {
-  const variables: Variables = rest[0] ?? {};
-  return async (request: DataRequest): Promise<T> => {
-    // What the document says it is about. In a resource this lands on the
-    // resource's tags; in an action it is the store's invalidation — one
-    // call, because the request carries whichever of the two it belongs to.
-    request.tags?.(
-      ...resolveTags(kind === 'mutation' ? document.invalidates : document.tags, variables),
-    );
-    const answer = await ask<T>(request, document, variables);
-    if (answer.errors !== undefined && answer.errors.length > 0) {
-      throw new GraphQLFailure(answer.errors);
-    }
-    return answer.data as T;
-  };
-}
-
-/**
- * Sends one operation, and turns a failed status that carries GraphQL errors
- * back into GraphQL errors.
- *
- * A server may answer a domain error with a 4xx — ours answers 401 for a dead
- * token on purpose — and then the body still says what went wrong. Letting the
- * `FirsthandHttpError` through would put "HTTP 400 for /graphql" on the screen
- * where "Use at least eight characters" belongs.
- */
-async function ask<T>(
-  request: DataRequest,
-  document: GraphQLDocument<T, Variables>,
-  variables: Variables,
-): Promise<Answer<T>> {
-  try {
-    return await http.post<Answer<T>>('/graphql', {
-      json: { query: document.source, variables },
-      // A POST is not identified by where it was sent, so a reading one has to
-      // say what it is: the operation and its variables, through `stableKey`,
-      // which gives the same string whatever order they were written in. A
-      // mutation says nothing, and is therefore never cached.
-      cacheKey: document.kind === 'query' ? `${document.operation}(${stableKey(variables)})` : false,
-    })(request);
-  } catch (error: unknown) {
-    const body = error instanceof FirsthandHttpError ? error.body : undefined;
-    if (isAnswer(body)) {
-      return body as Answer<T>;
-    }
-    throw error;
-  }
-}
-
-/** Whether a parsed body is a GraphQL answer rather than something else. */
-function isAnswer(body: unknown): boolean {
-  return typeof body === 'object' && body !== null && 'errors' in body;
-}
-
-/**
- * The client, in the shape every `@firsthandjs/data` client has.
- *
- * ```tsx
- * const board = useResource(({ request }) => graphql.query(BoardDocument, { id })(request));
- * const add = useAction((input: Input, { request }) => graphql.mutate(CreateCardDocument, input)(request));
- * ```
- */
-export const graphql = {
-  query: <T, V extends Variables>(
-    document: GraphQLDocument<T, V>,
-    ...rest: DocumentArguments<V>
-  ): Loader<T> => send('query', document, rest),
-  mutate: <T, V extends Variables>(
-    document: GraphQLDocument<T, V>,
-    ...rest: DocumentArguments<V>
-  ): Loader<T> => send('mutation', document, rest),
-};
+export const graphql = createUrqlClient(client, {
+  headers: () => {
+    // `peek`, not `.value`: this runs while a request is being sent, and a
+    // resource that depended on the token would re-send every query on a
+    // sign-out — with an empty header, on its way out.
+    const current = token.peek();
+    return current === null ? {} : { authorization: `Bearer ${current}` };
+  },
+  cache,
+  // Whose answers these are. The client would work this out from the
+  // authorization header on its own; saying it explicitly keys the cache by
+  // *account*, so two people at one browser can never read each other's
+  // boards, and a refreshed token does not throw the cache away.
+  scope: () => account.peek()?.id ?? 'anonymous',
+});

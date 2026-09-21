@@ -4,8 +4,9 @@ A kanban board built with [Firsthand](https://github.com/FirsthandJS/firsthand)
 and [Web Awesome](https://webawesome.com), against a GraphQL server that keeps
 everything in memory.
 
-It exists to show the framework doing a whole job: sign in, pick a board, move
-cards, and watch what the data layer does about it.
+It exists to show the framework doing a whole job: sign in, pick a board, drag
+cards between columns, rename what needs renaming, switch language — and watch
+what the data layer does about all of it.
 
 ## Running it
 
@@ -50,8 +51,14 @@ the one thing that moves.
 
 **Authentication is two functions.** `headers` is read per request — so a token
 that changes is the current one, and no resource depends on it — and `fetch`
-wraps the request, which is where a 401 ends the session. There is no plugin
-system, because at this size there does not have to be one.
+wraps the request, which is where a 401 ends the session. urql has exchanges
+for more than that; this needs neither.
+
+**Every word comes from a JSON file.** One per feature, per language:
+`locales/en/board.json`, `locales/de/board.json`. English is bundled, German is
+an `import()` that runs when somebody asks for it — and when it lands, only the
+expressions that read `t` run again. Switch the language mid-drag and the card
+stays where your pointer is.
 
 ## The shape of it
 
@@ -62,19 +69,23 @@ server/
 src/
   main.tsx                  theme, data store, routes
   setup/
-    api.ts                  fetch client + cache + GraphQL, and the 401 seam
+    api.ts                  urql + the cache, and the 401 seam
+    i18n.ts                 the keys, the plurals, and the late-loaded language
     session.ts              who is signed in, as two signals
     theme.ts                what the application decides; colour is Web Awesome's
     webawesome.ts           the six components used, and a local icon library
     devtools.ts             development only, dynamically imported
   gql/                      one operation per file, tags as directives
+  locales/
+    en/board.json           one file per feature, per language
+    de/board.json
   shell/                    the frame: header, account, sign out
   pages/
     sign-in.tsx             register and log in, one form
     boards.tsx              the list, and the form that adds to it
     board.tsx               columns, cards, and the three mutations
   components/
-    card.tsx                one card and its three buttons
+    card.tsx                one card: draggable, editable in place
 ```
 
 Every file that renders has a `.styled.tsx` beside it, and every test sits
@@ -98,23 +109,30 @@ mimed, because faking them would teach the wrong lesson:
 There is a deliberate 180 ms of latency, so that loading, reloading and the
 cache are visible rather than theoretical.
 
-## GraphQL without a GraphQL client
+## GraphQL: urql, bound in one file
 
-There is no urql or Apollo here. The `.gql` files become parsed documents at
-build time — fragments inlined, tags read from the directives, the directives
-stripped before anything is sent, and the parser never shipped — and
-`setup/api.ts` posts them with the fetch client.
-
-That is a choice, not a limitation: an application that wants normalised
-caching, subscriptions or exchanges installs
+The client is urql, built in `setup/api.ts` with its URL, its exchanges and its
+`fetch` wrapper. `createUrqlClient` from
 [`@firsthandjs/data-urql`](https://www.npmjs.com/package/@firsthandjs/data-urql)
-or [`-apollo`](https://www.npmjs.com/package/@firsthandjs/data-apollo) and
-changes one file. `createUrqlClient(client).query(Document, variables)` has the
-same shape as `graphql.query(...)` here, deliberately.
+binds two of its methods and adds what the resource layer needs: the abort
+signal, the cache, and the document's own directives reported into the request.
 
-Types come from the schema: `npm run codegen` writes one `declare module` per
-operation, so no call site carries a type argument and an operation with
-required variables cannot be called without them.
+Nothing here parses GraphQL, posts JSON or unwraps an answer — which is how a
+project ends up maintaining a client it never meant to write.
+
+The `.gql` files become parsed documents at build time: fragments inlined, tags
+read from the `@tag` / `@invalidates` directives, the directives stripped before
+anything is sent, and the parser never shipped. `npm run codegen` writes one
+`declare module` per operation from the schema, so no call site carries a type
+argument and an operation with required variables cannot be called without
+them.
+
+The one decision worth noticing: urql runs with `fetchExchange` and **no**
+`cacheExchange`. A normalising cache and a store of resources are two answers
+to "what is the current state", and two answers disagree — so urql is the
+transport, the resources are the state, and `createCacheClient` holds answers
+for ten seconds at the transport edge where an invalidation can reach through
+them.
 
 ## Scripts
 

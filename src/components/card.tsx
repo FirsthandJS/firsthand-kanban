@@ -1,55 +1,120 @@
 /**
- * One card, and the three things that can happen to it.
+ * One card: draggable, editable in place, and buttons that appear when you are
+ * near it.
  *
- * A component with no data of its own: it takes props and hands events back.
- * Props are accessors here — `props.title` is read where it is used, which is
- * what lets a moved card's DOM node stay put while its column changes.
+ * Two things here are worth reading rather than skimming.
+ *
+ * **Editing is a signal, not a mode.** `editing` flips, the title becomes an
+ * input, and the only thing that changes on screen is that one node — the
+ * column around it, the cards beside it and the board's scroll position are
+ * untouched, because nothing re-rendered.
+ *
+ * **Dragging is the platform's.** `draggable` plus three handlers; no library,
+ * no pointer arithmetic, and the browser draws the drag image. The arrows stay
+ * for the keyboard, which is not a fallback so much as the other half of the
+ * feature.
  */
-import { component } from '@firsthandjs/dom';
-import { KIND_LABEL, type Kind } from '../setup/theme';
-import { Actions, Marker, Tile, Title } from './card.styled';
+import { component, signal } from '@firsthandjs/dom';
+import { t } from '../setup/i18n';
+import type { Kind } from '../setup/theme';
+import { Actions, Edit, Marker, Tile, Title } from './card.styled';
 
 export interface CardProps {
+  readonly id: string;
   readonly title: string;
   readonly kind: Kind;
   /** In the first column: there is nothing to its left. */
   readonly first: boolean;
   readonly last: boolean;
   readonly busy: boolean;
+  readonly dragging: boolean;
   readonly onBack: () => void;
   readonly onForward: () => void;
   readonly onDelete: () => void;
+  readonly onRename: (title: string) => void;
+  readonly onDragStart: (event: DragEvent) => void;
+  readonly onDragEnd: () => void;
 }
 
-export const CardTile = component<CardProps>((props) => (
-  <Tile $kind={props.kind}>
-    <Marker>{KIND_LABEL[props.kind]}</Marker>
-    <Title>{props.title}</Title>
-    <Actions>
-      <button
-        type="button"
-        aria-label="Move left"
-        disabled={props.first || props.busy}
-        onClick={props.onBack}
-      >
-        ←
-      </button>
-      <button
-        type="button"
-        aria-label="Move right"
-        disabled={props.last || props.busy}
-        onClick={props.onForward}
-      >
-        →
-      </button>
-      <button
-        type="button"
-        aria-label="Delete card"
-        disabled={props.busy}
-        onClick={props.onDelete}
-      >
-        <wa-icon name="trash" />
-      </button>
-    </Actions>
-  </Tile>
-));
+export const CardTile = component<CardProps>((props) => {
+  const editing = signal(false);
+  const draft = signal('');
+
+  const start = (): void => {
+    draft.value = props.title;
+    editing.value = true;
+  };
+
+  const commit = (event: Event): void => {
+    event.preventDefault();
+    const next = draft.value.trim();
+    editing.value = false;
+    if (next !== '' && next !== props.title) {
+      props.onRename(next);
+    }
+  };
+
+  const key = (event: KeyboardEvent): void => {
+    if (event.key === 'Escape') {
+      editing.value = false;
+    }
+  };
+
+  return (
+    <Tile
+      $kind={props.kind}
+      $dragging={props.dragging}
+      draggable={!editing.value}
+      data-card={props.id}
+      onDragStart={props.onDragStart}
+      onDragEnd={props.onDragEnd}
+    >
+      <Marker>{t(`kind.${props.kind}`)}</Marker>
+
+      {editing.value ? (
+        <Edit onSubmit={commit}>
+          <input
+            value={draft.value}
+            autofocus
+            aria-label={t('board.edit')}
+            onInput={(event: Event) => (draft.value = (event.target as HTMLInputElement).value)}
+            onKeyDown={key}
+            onBlur={commit}
+          />
+        </Edit>
+      ) : (
+        <Title onDblClick={start}>{props.title}</Title>
+      )}
+
+      <Actions>
+        <button
+          type="button"
+          aria-label={t('board.moveLeft')}
+          disabled={props.first || props.busy}
+          onClick={props.onBack}
+        >
+          ←
+        </button>
+        <button
+          type="button"
+          aria-label={t('board.moveRight')}
+          disabled={props.last || props.busy}
+          onClick={props.onForward}
+        >
+          →
+        </button>
+        <button type="button" aria-label={t('board.edit')} disabled={props.busy} onClick={start}>
+          <wa-icon name="pencil" />
+        </button>
+        <button
+          type="button"
+          aria-label={t('board.delete')}
+          disabled={props.busy}
+          onClick={props.onDelete}
+        >
+          <wa-icon name="trash" />
+        </button>
+      </Actions>
+    </Tile>
+  );
+});

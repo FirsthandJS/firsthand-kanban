@@ -22,6 +22,7 @@ import { useNavigate } from '@firsthandjs/router';
 import LogInDocument from '../gql/log-in.gql';
 import RegisterDocument from '../gql/register.gql';
 import { graphql } from '../setup/api';
+import { t } from '../setup/i18n';
 import { signedIn } from '../setup/session';
 import { Card, Field, Fields, Footer, Intro, Switcher, Title } from './sign-in.styled';
 
@@ -80,18 +81,15 @@ export const SignIn = component(() => {
 
   return (
     <Card>
-      <Title>{mode.value === 'sign-in' ? 'Sign in' : 'Create an account'}</Title>
-      <Intro>
-        Everything here lives in the server's memory: register with any address you like — nothing
-        is sent anywhere — and a restart forgets you.
-      </Intro>
+      <Title>{mode.value === 'sign-in' ? t('signIn.title') : t('signIn.titleRegister')}</Title>
+      <Intro>{t('signIn.intro')}</Intro>
 
       <form onSubmit={(event: Event) => void submit(event)}>
         <Fields>
           {mode.value === 'register' ? (
             <Field>
               <wa-input
-                label="Name"
+                label={t('signIn.name')}
                 value={name.value}
                 required
                 autocomplete="name"
@@ -101,7 +99,7 @@ export const SignIn = component(() => {
           ) : null}
           <Field>
             <wa-input
-              label="Email"
+              label={t('signIn.email')}
               type="email"
               value={email.value}
               required
@@ -111,12 +109,12 @@ export const SignIn = component(() => {
           </Field>
           <Field>
             <wa-input
-              label="Password"
+              label={t('signIn.password')}
               type="password"
               value={password.value}
               required
               password-toggle
-              hint={mode.value === 'register' ? 'At least eight characters.' : undefined}
+              hint={mode.value === 'register' ? t('signIn.passwordHint') : undefined}
               autocomplete="current-password"
               onInput={(event: Event) => (password.value = valueOf(event))}
             />
@@ -132,10 +130,10 @@ export const SignIn = component(() => {
 
         <Footer>
           <wa-button type="submit" variant="brand" loading={busy.value || undefined}>
-            {mode.value === 'sign-in' ? 'Sign in' : 'Create account'}
+            {mode.value === 'sign-in' ? t('signIn.submit') : t('signIn.submitRegister')}
           </wa-button>
           <Switcher type="button" onClick={toggle}>
-            {mode.value === 'sign-in' ? 'I need an account' : 'I already have one'}
+            {mode.value === 'sign-in' ? t('signIn.needAccount') : t('signIn.haveAccount')}
           </Switcher>
         </Footer>
       </form>

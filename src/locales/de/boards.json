@@ -1,0 +1,13 @@
+{
+  "title": "Deine Boards",
+  "new": "Neues Board",
+  "newPlaceholder": "Wie soll es heißen?",
+  "add": "Anlegen",
+  "cancel": "Abbrechen",
+  "cards": "Karten",
+  "cards_one": "Karte",
+  "emptyTitle": "Hier ist noch nichts.",
+  "emptyBody": "Gib oben einem Board einen Namen, und es erscheint — die Liste invalidiert sich selbst.",
+  "rename": "Board umbenennen",
+  "open": "Board öffnen"
+}

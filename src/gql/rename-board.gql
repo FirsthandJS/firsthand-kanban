@@ -1,0 +1,8 @@
+mutation RenameBoard($boardId: ID!, $name: String!)
+@invalidates(name: "board", id: $boardId)
+@invalidates(name: "boards") {
+  renameBoard(boardId: $boardId, name: $name) {
+    id
+    name
+  }
+}

@@ -19,10 +19,27 @@ declare module '@firsthandjs/styled' {
   }
 }
 
+/**
+ * One duration for every transition in the application, and zero for a person
+ * who asked for less movement.
+ *
+ * It is a custom property on `:root` rather than a value in the theme, because
+ * a media query cannot be answered by JavaScript that runs once — and because
+ * a rule that writes `var(--motion)` does not have to know the rule exists.
+ */
+const motion = document.createElement('style');
+motion.textContent = `
+  :root { --motion: 140ms; }
+  @media (prefers-reduced-motion: reduce) { :root { --motion: 0ms; } }
+`;
+document.head.append(motion);
+
 export type Kind = 'FEATURE' | 'BUG' | 'CHORE';
 
 export const theme = {
-  column: '19rem',
+  // The smallest a column may be before the row starts scrolling. Four of
+  // these plus the gaps fit a laptop; below that, a phone scrolls.
+  column: '15.5rem',
   // Roles, not hues: these are the tokens that carry contrast and that flip
   // with the colour scheme.
   kinds: {

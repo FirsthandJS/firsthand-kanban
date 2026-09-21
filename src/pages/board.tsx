@@ -1,5 +1,5 @@
 /**
- * One board: columns, cards, and the three things you can do to them.
+ * One board: four columns, drag and drop, and four mutations.
  *
  * This page is where the data layer earns its keep.
  *
@@ -7,16 +7,19 @@
  * inside the loader, so walking from one board to another runs it again and
  * aborts the request that was in flight. Nothing was declared.
  *
- * **Every mutation says what it changed, in its own document.** `@invalidates(name: "board", id: $boardId)`
- * reloads *this* board and leaves every other one alone, and
- * `@invalidates(name: "boards")` keeps the card counts on the list page right
- * — a page that is not even mounted. No component here mentions either.
+ * **Every mutation says what it changed, in its own document.**
+ * `@invalidates(name: "board", id: $boardId)` reloads *this* board and leaves
+ * every other one alone; `@invalidates(name: "boards")` keeps the card counts
+ * right on a list page that is not even mounted. No component here mentions
+ * either: an action's request *is* the store's invalidation.
  *
  * **The reload reaches through the cache**, because an invalidated run is
- * forced, and `force` is in the request every client is handed.
+ * forced — and nothing an action sends is put in the cache in the first place.
  *
- * Moving a card is a button rather than a drag, deliberately: dragging is a
- * pointer-events exercise, and what there is to see here is the round trip.
+ * **Dragging is the platform's.** `dragging` holds the card id while a drag is
+ * happening, and `over` holds the column under the pointer. Two signals, four
+ * handlers, no library — and the drop calls the same `moveCard` the arrow keys
+ * do.
  */
 import { component, computed, signal } from '@firsthandjs/dom';
 import { useAction, useResource } from '@firsthandjs/data';
@@ -24,9 +27,13 @@ import { Link } from '@firsthandjs/router';
 import BoardDocument from '../gql/board.gql';
 import CreateCardDocument from '../gql/create-card.gql';
 import DeleteCardDocument from '../gql/delete-card.gql';
+import EditCardDocument from '../gql/edit-card.gql';
 import MoveCardDocument from '../gql/move-card.gql';
+import RenameBoardDocument from '../gql/rename-board.gql';
 import { graphql } from '../setup/api';
+import { t } from '../setup/i18n';
 import { KIND_LABEL, type Kind } from '../setup/theme';
+import { CardTile } from '../components/card';
 import {
   Back,
   Board as Frame,
@@ -39,11 +46,13 @@ import {
   Missing,
   Name,
   Note,
+  Rename,
+  Skeleton,
   Slot,
   Summary,
   Title,
+  Titles,
 } from './board.styled';
-import { CardTile } from '../components/card';
 
 export const Board = component<{ id: string }>((props) => {
   const board = useResource(({ request }) =>
@@ -55,6 +64,11 @@ export const Board = component<{ id: string }>((props) => {
   const kind = signal<Kind>('FEATURE');
   const title = signal('');
   const composing = signal<string | null>(null);
+  const renaming = signal(false);
+  const name = signal('');
+  /** The card being dragged, and the column the pointer is over. */
+  const dragging = signal<string | null>(null);
+  const over = signal<string | null>(null);
 
   const add = useAction((columnId: string, { request }) =>
     graphql.mutate(CreateCardDocument, {
@@ -74,9 +88,18 @@ export const Board = component<{ id: string }>((props) => {
     graphql.mutate(DeleteCardDocument, { boardId: props.id, cardId })(request),
   );
 
-  const columns = computed(() => board.data.value?.board?.columns ?? []);
+  const edit = useAction((input: { cardId: string; title: string }, { request }) =>
+    graphql.mutate(EditCardDocument, { boardId: props.id, ...input })(request),
+  );
 
-  const submit = async (event: Event, columnId: string): Promise<void> => {
+  const rename = useAction((next: string, { request }) =>
+    graphql.mutate(RenameBoardDocument, { boardId: props.id, name: next })(request),
+  );
+
+  const columns = computed(() => board.data.value?.board?.columns ?? []);
+  const busy = computed(() => move.running.value || remove.running.value || edit.running.value);
+
+  const addCard = async (event: Event, columnId: string): Promise<void> => {
     event.preventDefault();
     if (title.peek().trim() === '') {
       return;
@@ -88,6 +111,21 @@ export const Board = component<{ id: string }>((props) => {
     }
   };
 
+  const saveName = async (event: Event): Promise<void> => {
+    event.preventDefault();
+    const next = name.peek().trim();
+    renaming.value = false;
+    if (next !== '' && next !== board.data.peek()?.board?.name) {
+      await rename.run(next);
+    }
+  };
+
+  const startRenaming = (): void => {
+    name.value = board.data.peek()?.board?.name ?? '';
+    renaming.value = true;
+  };
+
+  /** Moves a card one column along — what the arrow buttons do. */
   const shift = (cardId: string, index: number, direction: 1 | -1): void => {
     const all = columns.peek();
     const from = all.findIndex((column) => column.cards.some((card) => card.id === cardId));
@@ -98,12 +136,32 @@ export const Board = component<{ id: string }>((props) => {
     void move.run({ cardId, toColumnId: to.id, toIndex: Math.min(index, to.cards.length) });
   };
 
+  /** Where in the column a drop landed: above the card it was dropped on. */
+  const dropIndex = (event: DragEvent, columnId: string): number => {
+    const cards = columns.peek().find((column) => column.id === columnId)?.cards ?? [];
+    const target = (event.target as HTMLElement | null)?.closest('[data-card]');
+    const id = target?.getAttribute('data-card');
+    const at = cards.findIndex((card) => card.id === id);
+    return at === -1 ? cards.length : at;
+  };
+
+  const drop = (event: DragEvent, columnId: string): void => {
+    event.preventDefault();
+    const cardId = dragging.peek();
+    over.value = null;
+    dragging.value = null;
+    if (cardId === null) {
+      return;
+    }
+    void move.run({ cardId, toColumnId: columnId, toIndex: dropIndex(event, columnId) });
+  };
+
   /**
-   * The state of the page, as a cell rather than as four early returns.
+   * What the page is showing, as a cell rather than as four early returns.
    *
    * A component runs **once**: an `if` in the setup body is evaluated once and
-   * never again, so a `return <wa-spinner />` up here would be a spinner
-   * for ever. The branch belongs where it can be re-evaluated — in the view.
+   * never again, so a `return <Skeleton />` up here would be a skeleton for
+   * ever. The branch belongs where it can be re-evaluated — in the view.
    */
   const state = computed(() => {
     if (board.status.value === 'loading') {
@@ -118,34 +176,85 @@ export const Board = component<{ id: string }>((props) => {
   return (
     <>
       {state.value === 'loading' ? (
-        <wa-spinner />
+        <Skeleton aria-hidden="true">
+          {[0, 1, 2, 3].map((column) => (
+            <div key={column}>
+              <span />
+              <span />
+              <span />
+            </div>
+          ))}
+        </Skeleton>
       ) : state.value === 'error' ? (
         <wa-callout variant="danger">{(board.error.value as Error).message}</wa-callout>
       ) : state.value === 'missing' ? (
         <Missing>
-          <p>That board is not here. It may belong to another account.</p>
-          <Link to="/">Back to your boards</Link>
+          <p>
+            <strong>{t('board.missingTitle')}</strong> {t('board.missingBody')}
+          </p>
+          <Link to="/">← {t('board.back')}</Link>
         </Missing>
       ) : (
         <>
           <Head>
             <div>
               <Back>
-                <Link to="/">← All boards</Link>
+                <Link to="/">← {t('board.back')}</Link>
               </Back>
-              <Title>{board.data.value?.board?.name}</Title>
+              <Titles>
+                {renaming.value ? (
+                  <Rename onSubmit={(event: Event) => void saveName(event)}>
+                    <input
+                      value={name.value}
+                      autofocus
+                      aria-label={t('boards.rename')}
+                      onInput={(event: Event) =>
+                        (name.value = (event.target as HTMLInputElement).value)
+                      }
+                      onBlur={(event: Event) => void saveName(event)}
+                      onKeyDown={(event: KeyboardEvent) => {
+                        if (event.key === 'Escape') {
+                          renaming.value = false;
+                        }
+                      }}
+                    />
+                  </Rename>
+                ) : (
+                  <Title onDblClick={startRenaming}>{board.data.value?.board?.name}</Title>
+                )}
+                <button
+                  type="button"
+                  aria-label={t('boards.rename')}
+                  onClick={startRenaming}
+                  data-rename
+                >
+                  <wa-icon name="pencil" />
+                </button>
+              </Titles>
               <Summary>{board.data.value?.board?.summary}</Summary>
             </div>
             <Note $busy={board.loading.value}>
-              {board.loading.value
-                ? 'Reloading — the invalidation reached through the cache'
-                : 'Up to date'}
+              {board.loading.value ? t('board.reloading') : t('board.upToDate')}
             </Note>
           </Head>
 
           <Frame>
             {columns.value.map((column, columnIndex) => (
-              <Column key={column.id}>
+              <Column
+                key={column.id}
+                $over={over.value === column.id}
+                onDragOver={(event: DragEvent) => {
+                  // Without this the browser refuses the drop.
+                  event.preventDefault();
+                  over.value = column.id;
+                }}
+                onDragLeave={() => {
+                  if (over.peek() === column.id) {
+                    over.value = null;
+                  }
+                }}
+                onDrop={(event: DragEvent) => drop(event, column.id)}
+              >
                 <ColumnHead>
                   <Name>{column.name}</Name>
                   <Count>{column.cards.length}</Count>
@@ -155,62 +264,77 @@ export const Board = component<{ id: string }>((props) => {
                   {column.cards.map((card, index) => (
                     <CardTile
                       key={card.id}
+                      id={card.id}
                       title={card.title}
                       kind={card.kind as Kind}
                       first={columnIndex === 0}
                       last={columnIndex === columns.value.length - 1}
-                      busy={move.running.value || remove.running.value}
+                      busy={busy.value}
+                      dragging={dragging.value === card.id}
                       onBack={() => shift(card.id, index, -1)}
                       onForward={() => shift(card.id, index, 1)}
                       onDelete={() => void remove.run(card.id)}
+                      onRename={(next) => void edit.run({ cardId: card.id, title: next })}
+                      onDragStart={(event: DragEvent) => {
+                        dragging.value = card.id;
+                        event.dataTransfer?.setData('text/plain', card.id);
+                      }}
+                      onDragEnd={() => {
+                        dragging.value = null;
+                        over.value = null;
+                      }}
                     />
                   ))}
                 </Slot>
 
                 {composing.value === column.id ? (
-                  <Compose onSubmit={(event: Event) => void submit(event, column.id)}>
-                    <wa-input
-                      size="small"
-                      placeholder="What needs doing?"
+                  <Compose onSubmit={(event: Event) => void addCard(event, column.id)}>
+                    <input
                       value={title.value}
                       autofocus
+                      placeholder={t('board.cardPlaceholder')}
+                      aria-label={t('board.cardPlaceholder')}
                       onInput={(event: Event) =>
                         (title.value = (event.target as HTMLInputElement).value)
                       }
+                      onKeyDown={(event: KeyboardEvent) => {
+                        if (event.key === 'Escape') {
+                          composing.value = null;
+                        }
+                      }}
                     />
                     <Kinds>
                       {(Object.keys(KIND_LABEL) as Kind[]).map((one) => (
                         <button
                           key={one}
                           type="button"
+                          data-kind={one}
                           data-active={String(kind.value === one)}
                           onClick={() => (kind.value = one)}
                         >
-                          {KIND_LABEL[one]}
+                          {t(`kind.${one}`)}
                         </button>
                       ))}
+                      <span />
+                      <button type="button" data-quiet onClick={() => (composing.value = null)}>
+                        {t('board.cancel')}
+                      </button>
+                      <button type="submit" data-submit disabled={add.running.value}>
+                        {t('board.addCardSubmit')}
+                      </button>
                     </Kinds>
-                    <wa-button
-                      type="submit"
-                      size="small"
-                      variant="brand"
-                      loading={add.running.value || undefined}
-                    >
-                      Add card
-                    </wa-button>
                   </Compose>
                 ) : (
-                  <wa-button
-                    size="small"
-                    appearance="plain"
+                  <button
+                    type="button"
+                    data-add
                     onClick={() => {
                       composing.value = column.id;
                       title.value = '';
                     }}
                   >
-                    <wa-icon slot="start" name="plus" />
-                    Add a card
-                  </wa-button>
+                    <wa-icon name="plus" /> {t('board.addCard')}
+                  </button>
                 )}
               </Column>
             ))}

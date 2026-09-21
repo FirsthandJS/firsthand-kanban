@@ -1,82 +1,132 @@
 /**
- * The board list, and the form that adds to it.
+ * The board list: what you have, and the two ways to change it.
  *
- * The two halves of the data layer are both here, and they do not know about
- * each other:
+ * Both halves of the data layer are here and they do not know about each
+ * other. **A resource** loads the boards and holds the state — `status` for
+ * "nothing to show yet", `loading` for "asking again", `data` that stays on
+ * screen while it asks. **Actions** create and rename, and their documents
+ * carry `@invalidates(name: "boards")`, which is the only thing connecting
+ * them to the list above.
  *
- * **A resource** loads the boards and holds the state — `status` for "nothing
- * to show yet", `loading` for "asking again", and `data` that stays on screen
- * while it asks.
- *
- * **An action** creates one. Its document carries `@invalidates(name: "boards")`,
- * and the request an action is given *is* the store's invalidation — so the
- * list reloads without this form mentioning it, and the reload is forced,
- * which is what gets it past the ten-second cache in `setup/api.ts`.
+ * The form is not there until it is asked for: a permanent input in a header
+ * is a permanent suggestion that something is missing.
  */
 import { component, signal } from '@firsthandjs/dom';
 import { useAction, useResource } from '@firsthandjs/data';
-import { Link } from '@firsthandjs/router';
+import { useNavigate } from '@firsthandjs/router';
 import BoardsDocument from '../gql/boards.gql';
 import CreateBoardDocument from '../gql/create-board.gql';
+import RenameBoardDocument from '../gql/rename-board.gql';
 import { graphql } from '../setup/api';
+import { t } from '../setup/i18n';
 import {
   Blank,
-  Cards,
   Count,
   Create,
   Grid,
   Head,
   Name,
+  New,
+  Rename,
+  Skeleton,
   Summary,
   Tile,
   Title,
 } from './boards.styled';
 
 export const Boards = component(() => {
+  const navigate = useNavigate();
   const boards = useResource(({ request }) => graphql.query(BoardsDocument)(request));
+
+  const adding = signal(false);
   const name = signal('');
+  /** The board whose name is being edited, if any. */
+  const renaming = signal<string | null>(null);
+  const draft = signal('');
 
   const create = useAction((title: string, { request }) =>
     graphql.mutate(CreateBoardDocument, { name: title })(request),
+  );
+
+  const rename = useAction((input: { boardId: string; name: string }, { request }) =>
+    graphql.mutate(RenameBoardDocument, input)(request),
   );
 
   const submit = async (event: Event): Promise<void> => {
     event.preventDefault();
     const title = name.peek().trim();
     if (title === '') {
+      adding.value = false;
       return;
     }
     const made = await create.run(title);
     if (made !== undefined) {
       name.value = '';
+      adding.value = false;
+    }
+  };
+
+  const startRenaming = (event: Event, id: string, current: string): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    draft.value = current;
+    renaming.value = id;
+  };
+
+  const saveName = async (event: Event, id: string, current: string): Promise<void> => {
+    event.preventDefault();
+    const next = draft.peek().trim();
+    renaming.value = null;
+    if (next !== '' && next !== current) {
+      await rename.run({ boardId: id, name: next });
     }
   };
 
   return (
     <>
       <Head>
-        <Title>Your boards</Title>
-        <Create onSubmit={(event: Event) => void submit(event)}>
-          <wa-input
-            size="small"
-            placeholder="New board"
-            value={name.value}
-            onInput={(event: Event) => (name.value = (event.target as HTMLInputElement).value)}
-          />
-          <wa-button
-            type="submit"
-            size="small"
-            variant="brand"
-            loading={create.running.value || undefined}
+        <Title>{t('boards.title')}</Title>
+        {adding.value ? (
+          <Create onSubmit={(event: Event) => void submit(event)}>
+            <input
+              value={name.value}
+              autofocus
+              placeholder={t('boards.newPlaceholder')}
+              aria-label={t('boards.new')}
+              onInput={(event: Event) => (name.value = (event.target as HTMLInputElement).value)}
+              onKeyDown={(event: KeyboardEvent) => {
+                if (event.key === 'Escape') {
+                  adding.value = false;
+                }
+              }}
+            />
+            <button type="button" data-quiet onClick={() => (adding.value = false)}>
+              {t('boards.cancel')}
+            </button>
+            <button type="submit" data-submit disabled={create.running.value}>
+              {t('boards.add')}
+            </button>
+          </Create>
+        ) : (
+          <New
+            type="button"
+            onClick={() => {
+              name.value = '';
+              adding.value = true;
+            }}
           >
-            <wa-icon slot="start" name="plus" />
-            Add
-          </wa-button>
-        </Create>
+            <wa-icon name="plus" />
+            {t('boards.new')}
+          </New>
+        )}
       </Head>
 
       {boards.status.value === 'loading' ? (
-        <wa-spinner />
+        <Skeleton aria-hidden="true">
+          {[0, 1, 2].map((tile) => (
+            <div key={tile} />
+          ))}
+        </Skeleton>
       ) : boards.status.value === 'error' ? (
         <wa-callout variant="danger">{(boards.error.value as Error).message}</wa-callout>
       ) : (
@@ -84,21 +134,76 @@ export const Boards = component(() => {
         // which is why a reload dims rather than blanks it.
         <Grid $stale={boards.loading.value}>
           {(boards.data.value?.boards ?? []).map((board) => (
-            <Link key={board.id} to={`/boards/${board.id}`}>
-              <Tile>
-                <Name>{board.name}</Name>
-                <Summary>{board.summary}</Summary>
-                <Count>
-                  <wa-badge variant="neutral">{board.cardCount}</wa-badge>
-                  <span>{board.cardCount === 1 ? 'card' : 'cards'}</span>
-                </Count>
-              </Tile>
-            </Link>
+            <Tile
+              key={board.id}
+              data-board={board.id}
+              tabindex={0}
+              role="link"
+              aria-label={`${t('boards.open')}: ${board.name}`}
+              onClick={(event: MouseEvent) => {
+                // A click on the pencil, the input or a button inside is not a
+                // click on the tile.
+                if ((event.target as HTMLElement).closest('button, input, form') === null) {
+                  navigate(`/boards/${board.id}`);
+                }
+              }}
+              onKeyDown={(event: KeyboardEvent) => {
+                // Only when the tile itself has focus. Enter inside the rename
+                // field submits that field, and it bubbles to here — which
+                // opened the board behind the rename that had just been typed.
+                if (event.target !== event.currentTarget) {
+                  return;
+                }
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  navigate(`/boards/${board.id}`);
+                }
+              }}
+            >
+              {renaming.value === board.id ? (
+                <Rename
+                  onClick={(event: Event) => event.stopPropagation()}
+                  onSubmit={(event: Event) => void saveName(event, board.id, board.name)}
+                >
+                  <input
+                    value={draft.value}
+                    autofocus
+                    aria-label={t('boards.rename')}
+                    onInput={(event: Event) =>
+                      (draft.value = (event.target as HTMLInputElement).value)
+                    }
+                    onBlur={(event: Event) => void saveName(event, board.id, board.name)}
+                    onKeyDown={(event: KeyboardEvent) => {
+                      if (event.key === 'Escape') {
+                        renaming.value = null;
+                      }
+                    }}
+                  />
+                </Rename>
+              ) : (
+                <Name>
+                  {board.name}
+                  <button
+                    type="button"
+                    aria-label={t('boards.rename')}
+                    onClick={(event: Event) => startRenaming(event, board.id, board.name)}
+                  >
+                    <wa-icon name="pencil" />
+                  </button>
+                </Name>
+              )}
+              <Summary>{board.summary}</Summary>
+              <Count>
+                <span>{board.cardCount}</span>
+                {t('boards.cards', { count: board.cardCount })}
+              </Count>
+            </Tile>
           ))}
+
           {(boards.data.value?.boards ?? []).length === 0 ? (
             <Blank>
-              <Cards>Nothing here yet.</Cards>
-              <span>Name a board above and it will appear — the list invalidates itself.</span>
+              <strong>{t('boards.emptyTitle')}</strong>
+              <span>{t('boards.emptyBody')}</span>
             </Blank>
           ) : null}
         </Grid>

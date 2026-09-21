@@ -1,0 +1,13 @@
+{
+  "title": "Sign in",
+  "titleRegister": "Create an account",
+  "intro": "Everything here lives in the server’s memory: register with any address you like — nothing is sent anywhere — and a restart forgets you.",
+  "name": "Name",
+  "email": "Email",
+  "password": "Password",
+  "passwordHint": "At least eight characters.",
+  "submit": "Sign in",
+  "submitRegister": "Create account",
+  "needAccount": "I need an account",
+  "haveAccount": "I already have one"
+}

@@ -4,62 +4,134 @@ import type { Kind } from '../setup/theme';
 
 /**
  * The kind is a custom property rather than a class per kind: one rule, one
- * value that changes, and the browser does not restyle a thing when it does.
+ * value that changes, and the browser restyles nothing else when it does.
+ *
+ * Every transition here is behind `prefers-reduced-motion`, which is set once
+ * in `theme.ts` as `--motion`: a person who asked for less movement gets none,
+ * and the rules do not have to know that.
  */
-export const Tile = styled.article<{ $kind: Kind }>`
+export const Tile = styled.article<{ $kind: Kind; $dragging?: boolean }>`
   --kind: ${(props) => props.theme.kinds[props.$kind]};
+  --lift: ${(props) => (props.$dragging === true ? '0.35' : '1')};
   position: relative;
-  padding: 0.7rem 0.8rem 0.6rem;
+  padding: 0.6rem 0.75rem 0.65rem;
   background: var(--wa-color-surface-default);
   border: 1px solid var(--wa-color-surface-border);
   border-left: 3px solid var(--kind);
-  border-radius: 8px;
+  border-radius: 10px;
+  opacity: var(--lift);
+  cursor: grab;
+  transition:
+    transform var(--motion) ease-out,
+    box-shadow var(--motion) ease-out,
+    border-color var(--motion) ease-out,
+    opacity var(--motion) ease-out;
 
-  &:hover button {
+  &:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in oklab, var(--kind) 55%, var(--wa-color-surface-border));
+    box-shadow: 0 10px 24px -18px rgb(0 0 0 / 0.9);
+  }
+
+  &:active {
+    cursor: grabbing;
+  }
+
+  &:hover button,
+  &:focus-within button {
     opacity: 1;
+  }
+
+  @starting-style {
+    & {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
   }
 `;
 
 export const Marker = styled.span`
   display: inline-block;
-  font-size: 0.68rem;
-  letter-spacing: 0.08em;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--kind);
-  margin-bottom: 0.15rem;
+  margin-bottom: 0.1rem;
 `;
 
 export const Title = styled.p`
-  margin: 0 0 0.35rem;
+  margin: 0;
   font-size: 0.95rem;
   line-height: 1.35;
+  cursor: text;
 `;
 
+/** The same box the title occupied, so editing does not move anything. */
+export const Edit = styled.form`
+  margin: 0;
+
+  input {
+    font: inherit;
+    font-size: 0.95rem;
+    line-height: 1.35;
+    width: 100%;
+    padding: 0;
+    color: inherit;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--kind);
+    outline: none;
+  }
+`;
+
+/**
+ * The buttons, out of the flow.
+ *
+ * In the flow they reserved a row of height on every card whether or not
+ * anybody was looking at them, which made a two-line card as tall as a
+ * four-line one. Absolute, they cost nothing until they are wanted.
+ */
 export const Actions = styled.div`
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
   display: flex;
-  gap: 0.15rem;
+  gap: 0.1rem;
+  background: color-mix(in oklab, var(--wa-color-surface-default) 85%, transparent);
+  backdrop-filter: blur(2px);
+  border-radius: 8px;
 
   button {
     font: inherit;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     line-height: 1;
-    padding: 0.2rem 0.4rem;
+    padding: 0.2rem 0.35rem;
     color: var(--wa-color-text-quiet);
     background: transparent;
     border: 1px solid transparent;
     border-radius: 6px;
     cursor: pointer;
-    opacity: 0.35;
-    transition: opacity 120ms ease-out;
+    opacity: 0;
+    transition:
+      opacity var(--motion) ease-out,
+      color var(--motion) ease-out,
+      background var(--motion) ease-out;
 
     &:hover:not(:disabled) {
       color: var(--wa-color-text-normal);
-      border-color: var(--wa-color-surface-border);
+      background: var(--wa-color-surface-raised);
+    }
+
+    &:focus-visible {
+      opacity: 1;
+      outline: 2px solid var(--kind);
+      outline-offset: 1px;
     }
 
     &:disabled {
       cursor: not-allowed;
-      opacity: 0.15;
+      opacity: 0;
     }
   }
 `;

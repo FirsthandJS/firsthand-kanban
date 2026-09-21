@@ -1,0 +1,13 @@
+{
+  "title": "Anmelden",
+  "titleRegister": "Konto anlegen",
+  "intro": "Alles hier lebt im Speicher des Servers: Melde dich mit einer beliebigen Adresse an — es wird nichts irgendwohin geschickt — und ein Neustart vergisst dich wieder.",
+  "name": "Name",
+  "email": "E-Mail",
+  "password": "Passwort",
+  "passwordHint": "Mindestens acht Zeichen.",
+  "submit": "Anmelden",
+  "submitRegister": "Konto anlegen",
+  "needAccount": "Ich brauche ein Konto",
+  "haveAccount": "Ich habe schon eins"
+}
