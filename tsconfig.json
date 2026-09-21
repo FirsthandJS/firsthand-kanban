@@ -1,5 +1,9 @@
 {
   "compilerOptions": {
+    // `@/` is `src/`, so an import says where a thing lives rather than how
+    // many folders up it is from here.
+    "baseUrl": ".",
+    "paths": { "@/*": ["src/*"] },
     "target": "ES2022",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",

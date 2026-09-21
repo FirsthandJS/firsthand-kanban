@@ -1,4 +1,5 @@
 /// <reference types="vitest/config" />
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import { firsthand } from '@firsthandjs/compiler/vite';
 import { graphql } from '@firsthandjs/data/vite';
@@ -15,5 +16,7 @@ export default defineConfig({
     // The server, in the same process as the dev server and the preview.
     graphqlServer(),
   ],
+  // The same `@/` the tsconfig declares, so the editor and the bundler agree.
+  resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   test: { environment: 'happy-dom' },
 });

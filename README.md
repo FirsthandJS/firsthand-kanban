@@ -36,7 +36,7 @@ and that is the entire contract.
 **Mutations say what they changed, in their own documents.** `move-card.gql`
 carries `@invalidates(name: "board", id: $boardId)` and
 `@invalidates(name: "boards")`. No component mentions either: an action's
-request *is* the store's invalidation, so moving a card reloads this board —
+request _is_ the store's invalidation, so moving a card reloads this board —
 and only this board — and keeps the card counts right on a list page that is
 not even mounted.
 
@@ -67,29 +67,36 @@ server/
   schema.graphql            the whole API, deliberately small
   index.ts                  graphql-yoga in the Vite process, state in Maps
 src/
-  main.tsx                  theme, data store, routes
-  setup/
-    api.ts                  urql + the cache, and the 401 seam
-    i18n.ts                 the keys, the plurals, and the late-loaded language
-    session.ts              who is signed in, as two signals
-    theme.ts                what the application decides; colour is Web Awesome's
-    webawesome.ts           the six components used, and a local icon library
-    devtools.ts             development only, dynamically imported
+  app/                      the application as a whole
+    main.tsx                theme, data store, router
+    routes.tsx              what is at which path, and what is guarded
+    shell/                  the frame, and its own locales
+  features/
+    session/                who is signed in
+      api.ts                logIn and register, and what opening a session means
+      model.ts              token and account, as signals
+      pages/ locales/
+    boards/                 the list
+      api.ts                useBoards, useBoardActions — every rule about a name
+      components/           tile, form
+      pages/ locales/
+    board/                  one board
+      api.ts                useBoard, useBoardActions — add, move, edit, remove
+      model.ts              the drag: what is held, what it is over
+      components/           lane, card, composer, title
+      pages/ locales/
+  shared/
+    api/                    the urql client, the cache, the 401 seam
+    i18n/                   the translator, plurals, the late-loaded language
+    ui/                     the theme and the motion token
   gql/                      one operation per file, tags as directives
-  locales/
-    en/board.json           one file per feature, per language
-    de/board.json
-  shell/                    the frame: header, account, sign out
-  pages/
-    sign-in.tsx             register and log in, one form
-    boards.tsx              the list, and the form that adds to it
-    board.tsx               columns, cards, and the three mutations
-  components/
-    card.tsx                one card: draggable, editable in place
 ```
 
-Every file that renders has a `.styled.tsx` beside it, and every test sits
-beside what it tests.
+Three rules, written out in [ARCHITECTURE.md](ARCHITECTURE.md): a component
+renders and does not decide, things that change together live together, and a
+board is not a lane is not a card. Every file that renders has a `.styled.tsx`
+beside it, every test sits beside what it tests, and imports are absolute —
+`@/features/board/api`, never `../../../`.
 
 ## The server
 
@@ -101,7 +108,7 @@ mimed, because faking them would teach the wrong lesson:
   plain text is a demo somebody copies.
 - **An unauthenticated request answers 401**, not a 200 with an error in the
   body. That is what lets the client treat a dead token as a dead session in
-  one place rather than one per operation. It is the *only* non-200: everything
+  one place rather than one per operation. It is the _only_ non-200: everything
   else a person can get wrong — a short password, an address already
   registered, the wrong password — is an ordinary GraphQL error, because those
   are messages to show rather than transport failures.
@@ -136,14 +143,14 @@ them.
 
 ## Scripts
 
-| Command           | What it does                                     |
-| ----------------- | ------------------------------------------------ |
-| `npm run dev`     | Vite, the compiler plugin and the server         |
-| `npm run build`   | A production build into `dist/`                  |
-| `npm run preview` | Serves that build, server included               |
-| `npm run codegen` | Types for every `.gql` file, from the schema     |
-| `npm run check`   | Codegen, then `tsc --noEmit`                     |
-| `npm test`        | Vitest                                           |
+| Command           | What it does                                 |
+| ----------------- | -------------------------------------------- |
+| `npm run dev`     | Vite, the compiler plugin and the server     |
+| `npm run build`   | A production build into `dist/`              |
+| `npm run preview` | Serves that build, server included           |
+| `npm run codegen` | Types for every `.gql` file, from the schema |
+| `npm run check`   | Codegen, then `tsc --noEmit`                 |
+| `npm test`        | Vitest                                       |
 
 Press **Ctrl+Shift+F** for the devtools panel: pick a card and it names the
 signal behind it, and the queries tab says which tag caused which reload.
