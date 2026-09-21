@@ -12,13 +12,18 @@ import BoardsDocument from '@/features/boards/gql/boards.gql';
 import CreateBoardDocument from '@/features/boards/gql/create-board.gql';
 import DeleteBoardDocument from '@/features/boards/gql/delete-board.gql';
 import RenameBoardDocument from '@/features/boards/gql/rename-board.gql';
-import { fresh, graphql } from '@/shared/api/client';
+import { graphql } from '@/shared/api/client';
 
-/** The boards this account owns. */
+/**
+ * The boards this account owns.
+ *
+ * Cached like everything else. Moving a card two pages away invalidates
+ * `boards`, and because the store was handed the cache, the entry behind this
+ * is dropped there and then — so walking back shows the new counts without
+ * this hook having to opt out of caching, which is what it used to do.
+ */
 export function useBoards() {
-  // Uncached: nobody is watching this list while you are inside a board, so an
-  // invalidation from there reaches nothing — see `shared/api/client.ts`.
-  return useResource(({ request }) => fresh().query(BoardsDocument)(request));
+  return useResource(({ request }) => graphql.query(BoardsDocument)(request));
 }
 
 export function useBoardActions() {

@@ -40,10 +40,13 @@ request _is_ the store's invalidation, so moving a card reloads this board —
 and only this board — and keeps the card counts right on a list page that is
 not even mounted.
 
-**The invalidation reaches through the cache.** The client keeps answers for
-ten seconds, so walking from the list into a board and back is free. An
-invalidated run is `force`d, which drops the entry instead of being answered
-out of it. The line under the board title says which of the two is happening.
+**The invalidation reaches through the cache — and empties it.** The client
+keeps answers for ten seconds, so walking from the list into a board and back
+is free. Moving a card there invalidates `boards`, and because the store was
+handed the cache, the list's entry is dropped where it stands — nobody is
+watching that list from inside a board, so without that it would show the
+counts from before the move. The dot beside the board title spins while
+anything is being asked.
 
 **A component runs once.** Watch the board while a card moves: the columns are
 not re-rendered, the DOM nodes are not replaced, and the one card that moved is

@@ -70,19 +70,3 @@ export const graphql = createUrqlClient(client, {
   // boards, and a refreshed token does not throw the cache away.
   scope: () => account.peek()?.id ?? 'anonymous',
 });
-
-/**
- * The board list, without the cache.
- *
- * An invalidation reaches every resource that is *alive*. Nobody is watching
- * the list while you are inside a board, so moving a card invalidates nothing
- * there — and walking back within the cache's ten seconds was answered with
- * the counts from before the move.
- *
- * This is a real gap between the two layers rather than a bug in either, and
- * it is being discussed rather than papered over in the framework. Here the
- * honest answer is that a list of five boards is cheap and has to be right:
- * `.with({ cache: false })` says so in one line, and the cached client still
- * serves everything else.
- */
-export const fresh = () => graphql.with({ cache: false });
