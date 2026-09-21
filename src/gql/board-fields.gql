@@ -1,0 +1,15 @@
+fragment BoardFields on Board {
+  id
+  name
+  summary
+  cardCount
+  columns {
+    id
+    name
+    cards {
+      id
+      title
+      kind
+    }
+  }
+}

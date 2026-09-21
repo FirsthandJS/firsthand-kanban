@@ -1,0 +1,38 @@
+{
+  "name": "firsthand-kanban",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A kanban board built with Firsthand and Web Awesome, against a GraphQL server that keeps everything in memory.",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "codegen": "graphql-codegen --config codegen.ts",
+    "check": "npm run codegen && tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@awesome.me/webawesome": "^3.13.0",
+    "@firsthandjs/data": "^0.6.2",
+    "@firsthandjs/deep": "^0.6.2",
+    "@firsthandjs/dom": "^0.6.2",
+    "@firsthandjs/router": "^0.6.2",
+    "@firsthandjs/styled": "^0.6.2"
+  },
+  "devDependencies": {
+    "@firsthandjs/compiler": "^0.6.2",
+    "@firsthandjs/devtools": "^0.6.2",
+    "@firsthandjs/jsx-runtime": "^0.6.2",
+    "@firsthandjs/testing": "^0.6.2",
+    "@graphql-codegen/cli": "^7.4.1",
+    "@graphql-codegen/typescript-operations": "^6.1.6",
+    "graphql": "^17.0.2",
+    "graphql-yoga": "^5.24.1",
+    "happy-dom": "^20.14.5",
+    "typescript": "^5.9.2",
+    "vite": "^7.3.6",
+    "vitest": "^4.1.11"
+  }
+}

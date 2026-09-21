@@ -1,0 +1,11 @@
+#import "./board-fields.gql"
+
+# One tag, one board. Every other board in the cache is left alone, which is
+# the difference between invalidating by tag and dropping a cache.
+mutation MoveCard($boardId: ID!, $cardId: ID!, $toColumnId: ID!, $toIndex: Int!)
+@invalidates(name: "board", id: $boardId)
+@invalidates(name: "boards") {
+  moveCard(boardId: $boardId, cardId: $cardId, toColumnId: $toColumnId, toIndex: $toIndex) {
+    ...BoardFields
+  }
+}

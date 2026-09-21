@@ -1,0 +1,7 @@
+query Me @tag(name: "me") {
+  me {
+    id
+    name
+    email
+  }
+}

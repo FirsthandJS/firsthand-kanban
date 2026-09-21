@@ -1,0 +1,7 @@
+#import "./board-fields.gql"
+
+query Board($id: ID!) @tag(name: "board", id: $id) {
+  board(id: $id) {
+    ...BoardFields
+  }
+}

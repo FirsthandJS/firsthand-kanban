@@ -1,0 +1,8 @@
+query Boards @tag(name: "boards") {
+  boards {
+    id
+    name
+    summary
+    cardCount
+  }
+}

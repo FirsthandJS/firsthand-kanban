@@ -1,0 +1,8 @@
+mutation CreateBoard($name: String!) @invalidates(name: "boards") {
+  createBoard(name: $name) {
+    id
+    name
+    summary
+    cardCount
+  }
+}

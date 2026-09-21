@@ -1,0 +1,12 @@
+mutation LogIn($email: String!, $password: String!)
+@invalidates(name: "me")
+@invalidates(name: "boards") {
+  logIn(email: $email, password: $password) {
+    token
+    account {
+      id
+      name
+      email
+    }
+  }
+}

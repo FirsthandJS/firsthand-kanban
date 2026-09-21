@@ -1,0 +1,12 @@
+mutation Register($name: String!, $email: String!, $password: String!)
+@invalidates(name: "me")
+@invalidates(name: "boards") {
+  register(name: $name, email: $email, password: $password) {
+    token
+    account {
+      id
+      name
+      email
+    }
+  }
+}

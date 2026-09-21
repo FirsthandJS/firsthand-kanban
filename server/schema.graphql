@@ -1,0 +1,55 @@
+"""
+The whole API. It is small on purpose: this project exists to show a
+framework, and a server large enough to be interesting would be in the way.
+"""
+type Account {
+  id: ID!
+  name: String!
+  email: String!
+}
+
+type Session {
+  token: String!
+  account: Account!
+}
+
+enum Kind {
+  FEATURE
+  BUG
+  CHORE
+}
+
+type Card {
+  id: ID!
+  title: String!
+  kind: Kind!
+}
+
+type Column {
+  id: ID!
+  name: String!
+  cards: [Card!]!
+}
+
+type Board {
+  id: ID!
+  name: String!
+  summary: String!
+  cardCount: Int!
+  columns: [Column!]!
+}
+
+type Query {
+  me: Account
+  boards: [Board!]!
+  board(id: ID!): Board
+}
+
+type Mutation {
+  register(name: String!, email: String!, password: String!): Session!
+  logIn(email: String!, password: String!): Session!
+  createBoard(name: String!): Board!
+  createCard(boardId: ID!, columnId: ID!, title: String!, kind: Kind!): Card!
+  moveCard(boardId: ID!, cardId: ID!, toColumnId: ID!, toIndex: Int!): Board!
+  deleteCard(boardId: ID!, cardId: ID!): ID!
+}
