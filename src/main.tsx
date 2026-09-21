@@ -11,31 +11,40 @@
  * a transport's job. The store holds resources and matches tags; it has no
  * memory of its own.
  */
-import './setup/devtools';
-import './setup/webawesome';
+import "./setup/devtools";
+import "./setup/webawesome";
 
-import { component, provide, render, signal, type View } from '@firsthandjs/dom';
-import { Navigate, Router, route } from '@firsthandjs/router';
-import { DataContext, createData } from '@firsthandjs/data';
-import { ThemeContext } from '@firsthandjs/styled';
-import { Shell } from './shell/shell';
-import { SignIn } from './pages/sign-in';
-import { Boards } from './pages/boards';
-import { Board } from './pages/board';
-import { token } from './setup/session';
-import { theme } from './setup/theme';
+import {
+  component,
+  provide,
+  render,
+  signal,
+  type View,
+} from "@firsthandjs/dom";
+import { Navigate, Router, route } from "@firsthandjs/router";
+import { DataContext, createData } from "@firsthandjs/data";
+import { ThemeContext } from "@firsthandjs/styled";
+import { Shell } from "./shell/shell";
+import { SignIn } from "./pages/sign-in";
+import { Boards } from "./pages/boards";
+import { Board } from "./pages/board";
+import { token } from "./setup/session";
+import { theme } from "./setup/theme";
 
 /**
  * A route nobody may see signed out.
  *
- * `token.value` is read inside the route's component, so this is an ordinary
- * reactive read: signing out redirects, and nothing had to subscribe to
- * anything. That is the whole guard.
+ * The read is **inside the JSX**, not in the function body, and that is the
+ * whole of what makes it work: a component runs once, so a `return token.value
+ * === null ? … : …` up here would decide once, at setup, and a sign-out would
+ * leave the page on screen. In a child position the same expression is a part,
+ * re-evaluated when the token changes.
  */
 const guarded =
   (page: () => View): (() => View) =>
-  () =>
-    token.value === null ? <Navigate to="/sign-in" replace /> : page();
+  () => (
+    <>{token.value === null ? <Navigate to="/sign-in" replace /> : page()}</>
+  );
 
 const Root = component(() => {
   // A signal, not a constant: assigning a new object restyles everything that
@@ -45,17 +54,17 @@ const Root = component(() => {
 
   const routes = [
     route({
-      path: '/',
+      path: "/",
       component: Shell,
       children: (child) => [
         child({ index: true, component: guarded(() => <Boards />) }),
-        child({ path: 'sign-in', component: SignIn }),
+        child({ path: "sign-in", component: SignIn }),
         child({
           // `params.id` is typed from the path, and declared nowhere else.
-          path: 'boards/:id',
+          path: "boards/:id",
           component: ({ params }) => guarded(() => <Board id={params.id} />)(),
         }),
-        child({ path: '*', component: () => <Navigate to="/" replace /> }),
+        child({ path: "*", component: () => <Navigate to="/" replace /> }),
       ],
     }),
   ];
@@ -63,4 +72,4 @@ const Root = component(() => {
   return <Router routes={routes} />;
 });
 
-render(() => <Root />, document.getElementById('root') as HTMLElement);
+render(() => <Root />, document.getElementById("root") as HTMLElement);
