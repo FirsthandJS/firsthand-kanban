@@ -52,6 +52,13 @@ anything is being asked.
 not re-rendered, the DOM nodes are not replaced, and the one card that moved is
 the one thing that moves.
 
+**Where a view has a choice to make, the setup returns a render function.** The
+route guard in `app/routes.tsx` and the four states of `features/board/pages/board.tsx`
+are ordinary `if` statements in a function that runs again — while the title,
+the summary and the lanes below them read the resource inside the markup, so
+they are parts of their own and update without the choice above them being
+made again. Where you put the read is how you choose.
+
 **Authentication is two functions.** `headers` is read per request — so a token
 that changes is the current one, and no resource depends on it — and `fetch`
 wraps the request, which is where a 401 ends the session. urql has exchanges

@@ -15,6 +15,13 @@
  * **Every mutation says what it changed, in its own document.** No component
  * in this feature mentions a tag: an action's request *is* the store's
  * invalidation, so moving a card reloads this board — and only this board.
+ *
+ * **The four states are four early returns.** The setup returns a render
+ * function, which is a reactive scope of its own: the status is read in a
+ * statement, so changing it runs this function again — and only this
+ * function. Everything else on the page reads the resource inside the markup,
+ * so the title, the summary and the lanes are parts that update without the
+ * choice above them being made again.
  */
 import { component, computed } from '@firsthandjs/dom';
 import { Link } from '@firsthandjs/router';
@@ -42,82 +49,76 @@ export const Board = component<{ id: string }>((props) => {
   );
   const drag = createDrag();
 
-  /**
-   * What the page is showing, as a cell rather than as four early returns.
-   *
-   * A component runs **once**: an `if` in the setup body is evaluated once and
-   * never again, so a `return <Skeleton />` up here would be a skeleton for
-   * ever. The branch belongs where it can be re-evaluated — in the view.
-   */
-  const state = computed(() => {
-    if (board.status.value === 'loading') {
-      return 'loading' as const;
-    }
-    if (board.status.value === 'error') {
-      return 'error' as const;
-    }
-    return board.data.value?.board == null ? ('missing' as const) : ('ready' as const);
-  });
+  return () => {
+    const status = board.status.value;
 
-  return (
-    <>
-      {state.value === 'loading' ? (
+    if (status === 'loading') {
+      return (
         <Skeleton aria-hidden="true">
           {[0, 1, 2, 3].map((lane) => (
             <div key={lane}>
               <span />
               <span />
               <span />
+              <span />
             </div>
           ))}
         </Skeleton>
-      ) : state.value === 'error' ? (
-        <wa-callout variant="danger">{(board.error.value as Error).message}</wa-callout>
-      ) : state.value === 'missing' ? (
+      );
+    }
+
+    if (status === 'error') {
+      return <wa-callout variant="danger">{(board.error.value as Error).message}</wa-callout>;
+    }
+
+    if (board.data.value?.board == null) {
+      return (
         <Missing>
           <p>
             <strong>{t('board.missingTitle')}</strong> {t('board.missingBody')}
           </p>
           <Link to="/">← {t('board.back')}</Link>
         </Missing>
-      ) : (
-        <>
-          <Head>
-            <div>
-              <Back>
-                <Link to="/">← {t('board.back')}</Link>
-              </Back>
-              <BoardTitle
-                name={board.data.value?.board?.name ?? ''}
-                onRename={(name) => actions.rename(name, board.data.peek()?.board?.name ?? '')}
-              />
-              <Summary>{board.data.value?.board?.summary}</Summary>
-            </div>
-            <Status busy={board.loading.value} />
-          </Head>
+      );
+    }
 
-          <Frame>
-            {lanes.value.map((lane, index) => (
-              <Lane
-                key={lane.id}
-                id={lane.id}
-                name={lane.name}
-                cards={lane.cards}
-                first={index === 0}
-                last={index === lanes.value.length - 1}
-                busy={actions.busy()}
-                adding={actions.adding()}
-                drag={drag}
-                onAdd={(title, kind) => actions.add(lane.id, title, kind)}
-                onMove={(cardId, at) => actions.move(cardId, lane.id, at)}
-                onShift={(cardId, at, direction) => actions.shift(cardId, at, direction)}
-                onEdit={(cardId, title, current) => actions.edit(cardId, title, current)}
-                onDelete={(cardId) => actions.remove(cardId)}
-              />
-            ))}
-          </Frame>
-        </>
-      )}
-    </>
-  );
+    return (
+      <>
+        <Head>
+          <div>
+            <Back>
+              <Link to="/">← {t('board.back')}</Link>
+            </Back>
+            <BoardTitle
+              name={board.data.value?.board?.name ?? ''}
+              onRename={(name) => actions.rename(name, board.data.peek()?.board?.name ?? '')}
+            />
+            <Summary>{board.data.value?.board?.summary}</Summary>
+          </div>
+          <Status busy={board.loading.value} />
+        </Head>
+
+        <Frame>
+          {lanes.value.map((lane, index) => (
+            <Lane
+              key={lane.id}
+              id={lane.id}
+              name={lane.name}
+              cards={lane.cards}
+              first={index === 0}
+              last={index === lanes.value.length - 1}
+              busy={actions.busy()}
+              adding={actions.adding()}
+              drag={drag}
+              onAdd={(title, kind) => actions.add(lane.id, title, kind)}
+              onMove={(cardId, at) => actions.move(cardId, lane.id, at)}
+              onShift={(cardId, at, direction) => actions.shift(cardId, at, direction)}
+              onEdit={(cardId, title, current) => actions.edit(cardId, title, current)}
+              onDelete={(cardId) => actions.remove(cardId)}
+            />
+          ))}
+        </Frame>
+      </>
+    );
+  };
 });

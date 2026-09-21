@@ -1,13 +1,17 @@
 /**
  * What is at which path, and what a signed-out visitor may see.
  *
- * The guard reads `token.value` **inside the JSX**, not in the function body,
- * and that is the whole of what makes it work: a component runs once, so a
- * `return token.value === null ? … : …` up here would decide once and a
- * sign-out would leave the page on screen. In a child position the same
- * expression is a part, re-evaluated when the token changes.
+ * The guard is an ordinary `if`, because the setup returns a **render
+ * function** — a reactive scope of its own, which runs again when the token
+ * changes. The setup around it still runs once, which is why the page it
+ * guards is built where the setup put it rather than on every check.
+ *
+ * Before render functions this had to be written as
+ * `<>{token.value === null ? … : page()}</>`, with the read pushed into a child
+ * position so that it became a part. That worked, and needed a paragraph to
+ * explain why it was written that way. This does not.
  */
-import { type View } from '@firsthandjs/dom';
+import { component, type View } from '@firsthandjs/dom';
 import { Navigate, route } from '@firsthandjs/router';
 import { Board } from '@/features/board/pages/board';
 import { Boards } from '@/features/boards/pages/boards';
@@ -15,9 +19,13 @@ import { SignIn } from '@/features/session/pages/sign-in';
 import { token } from '@/features/session/model';
 import { Shell } from '@/app/shell/shell';
 
-const guarded =
-  (page: () => View): (() => View) =>
-  () => <>{token.value === null ? <Navigate to="/sign-in" replace /> : page()}</>;
+const guarded = <P,>(page: (props: P) => View) =>
+  component<P>((props) => () => {
+    if (token.value === null) {
+      return <Navigate to="/sign-in" replace />;
+    }
+    return page(props as P);
+  });
 
 export const routes = [
   route({
@@ -29,7 +37,7 @@ export const routes = [
       child({
         // `params.id` is typed from the path, and declared nowhere else.
         path: 'boards/:id',
-        component: ({ params }) => guarded(() => <Board id={params.id} />)(),
+        component: guarded(({ params }: { params: { id: string } }) => <Board id={params.id} />),
       }),
       child({ path: '*', component: () => <Navigate to="/" replace /> }),
     ],
