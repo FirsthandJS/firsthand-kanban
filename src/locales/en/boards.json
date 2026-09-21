@@ -9,5 +9,9 @@
   "emptyTitle": "Nothing here yet.",
   "emptyBody": "Name a board above and it will appear — the list invalidates itself.",
   "rename": "Rename board",
-  "open": "Open board"
+  "open": "Open board",
+  "delete": "Delete board",
+  "confirm": "Delete it?",
+  "confirmYes": "Delete",
+  "confirmNo": "Keep"
 }

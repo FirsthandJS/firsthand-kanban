@@ -9,5 +9,9 @@
   "emptyTitle": "Hier ist noch nichts.",
   "emptyBody": "Gib oben einem Board einen Namen, und es erscheint — die Liste invalidiert sich selbst.",
   "rename": "Board umbenennen",
-  "open": "Board öffnen"
+  "open": "Board öffnen",
+  "delete": "Board löschen",
+  "confirm": "Wirklich löschen?",
+  "confirmYes": "Löschen",
+  "confirmNo": "Behalten"
 }

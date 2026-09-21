@@ -6,14 +6,19 @@
  * that runs again is the expression that did the reading. The `<Outlet />`
  * beside it, and the board inside that, are not touched.
  */
-import { component } from '@firsthandjs/dom';
-import { Link, Outlet } from '@firsthandjs/router';
+import { component, computed } from '@firsthandjs/dom';
+import { Link, Outlet, useMatches } from '@firsthandjs/router';
 import { cache } from '../setup/api';
 import { t, toggleLanguage } from '../setup/i18n';
 import { account, signedOut } from '../setup/session';
-import { Bar, Brand, Main, Name, Quiet, Spacer, Who, Wordmark } from './shell.styled';
+import { Bar, Brand, Main, Name, Page, Quiet, Spacer, Who, Wordmark } from './shell.styled';
 
 export const Shell = component(() => {
+  // What the router matched, as a string: the page animation is keyed on it,
+  // so it runs once per navigation rather than once per render.
+  const matches = useMatches();
+  const path = computed(() => matches.value.map((match) => match.pathname).join('|'));
+
   const signOut = (): void => {
     signedOut();
     // The next account must not read this one's answers. Keys are scoped by
@@ -50,7 +55,14 @@ export const Shell = component(() => {
         )}
       </Bar>
       <Main>
-        <Outlet />
+        {/*
+         * Keyed by path, so the router's outlet is a new element on every
+         * navigation — which is what makes the arrival animation run. Without
+         * the key the same node would be reused and nothing would animate.
+         */}
+        <Page key={path.value}>
+          <Outlet />
+        </Page>
       </Main>
     </>
   );

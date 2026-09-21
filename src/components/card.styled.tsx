@@ -12,7 +12,9 @@ import type { Kind } from '../setup/theme';
  */
 export const Tile = styled.article<{ $kind: Kind; $dragging?: boolean }>`
   --kind: ${(props) => props.theme.kinds[props.$kind]};
-  --lift: ${(props) => (props.$dragging === true ? '0.35' : '1')};
+  /* Faded, not ghostly: at 0.35 the card you are holding was hard to read. */
+  --lift: ${(props) => (props.$dragging === true ? '0.8' : '1')};
+  --tilt: ${(props) => (props.$dragging === true ? '1.5deg' : '0deg')};
   position: relative;
   padding: 0.6rem 0.75rem 0.65rem;
   background: var(--wa-color-surface-default);
@@ -27,8 +29,10 @@ export const Tile = styled.article<{ $kind: Kind; $dragging?: boolean }>`
     border-color var(--motion) ease-out,
     opacity var(--motion) ease-out;
 
+  transform: rotate(var(--tilt));
+
   &:hover {
-    transform: translateY(-1px);
+    transform: translateY(-1px) rotate(var(--tilt));
     border-color: color-mix(in oklab, var(--kind) 55%, var(--wa-color-surface-border));
     box-shadow: 0 10px 24px -18px rgb(0 0 0 / 0.9);
   }
@@ -71,7 +75,7 @@ export const Title = styled.p`
 export const Edit = styled.form`
   margin: 0;
 
-  input {
+  textarea {
     font: inherit;
     font-size: 0.95rem;
     line-height: 1.35;
@@ -82,6 +86,9 @@ export const Edit = styled.form`
     border: 0;
     border-bottom: 1px solid var(--kind);
     outline: none;
+    resize: none;
+    overflow: hidden;
+    display: block;
   }
 `;
 

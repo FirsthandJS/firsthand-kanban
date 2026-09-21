@@ -242,6 +242,15 @@ const schema = createSchema({
         board.name = name;
         return slowly(board);
       },
+      deleteBoard: (
+        _p: unknown,
+        args: { boardId: string },
+        context: { accountId: string | null },
+      ) => {
+        const board = ownedBoard(require_(context), args.boardId);
+        boards.delete(board.id);
+        return slowly(board.id);
+      },
       editCard: (
         _p: unknown,
         args: { boardId: string; cardId: string; title?: string; kind?: Kind },

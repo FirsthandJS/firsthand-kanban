@@ -16,11 +16,13 @@ import { useAction, useResource } from '@firsthandjs/data';
 import { useNavigate } from '@firsthandjs/router';
 import BoardsDocument from '../gql/boards.gql';
 import CreateBoardDocument from '../gql/create-board.gql';
+import DeleteBoardDocument from '../gql/delete-board.gql';
 import RenameBoardDocument from '../gql/rename-board.gql';
-import { graphql } from '../setup/api';
+import { fresh, graphql } from '../setup/api';
 import { t } from '../setup/i18n';
 import {
   Blank,
+  Confirm,
   Count,
   Create,
   Grid,
@@ -36,7 +38,9 @@ import {
 
 export const Boards = component(() => {
   const navigate = useNavigate();
-  const boards = useResource(({ request }) => graphql.query(BoardsDocument)(request));
+  // Uncached: nobody is watching this list while you are inside a board, so
+  // an invalidation from there reaches nothing — see `setup/api.ts`.
+  const boards = useResource(({ request }) => fresh().query(BoardsDocument)(request));
 
   const adding = signal(false);
   const name = signal('');
@@ -51,6 +55,25 @@ export const Boards = component(() => {
   const rename = useAction((input: { boardId: string; name: string }, { request }) =>
     graphql.mutate(RenameBoardDocument, input)(request),
   );
+
+  const remove = useAction((boardId: string, { request }) =>
+    graphql.mutate(DeleteBoardDocument, { boardId })(request),
+  );
+
+  /** The board asked about, if any. A second click is the confirmation. */
+  const confirming = signal<string | null>(null);
+
+  /**
+   * Focus, by hand.
+   *
+   * `autofocus` is honoured while a document loads, and these fields are
+   * inserted long after that — so the attribute does nothing, and `ref` is
+   * what puts the cursor where somebody just asked for it.
+   */
+  const focusField = (field: HTMLInputElement): void => {
+    field.focus();
+    field.select();
+  };
 
   const submit = async (event: Event): Promise<void> => {
     event.preventDefault();
@@ -90,7 +113,7 @@ export const Boards = component(() => {
           <Create onSubmit={(event: Event) => void submit(event)}>
             <input
               value={name.value}
-              autofocus
+              ref={focusField}
               placeholder={t('boards.newPlaceholder')}
               aria-label={t('boards.new')}
               onInput={(event: Event) => (name.value = (event.target as HTMLInputElement).value)}
@@ -167,7 +190,7 @@ export const Boards = component(() => {
                 >
                   <input
                     value={draft.value}
-                    autofocus
+                    ref={focusField}
                     aria-label={t('boards.rename')}
                     onInput={(event: Event) =>
                       (draft.value = (event.target as HTMLInputElement).value)
@@ -190,9 +213,42 @@ export const Boards = component(() => {
                   >
                     <wa-icon name="pencil" />
                   </button>
+                  <button
+                    type="button"
+                    data-delete
+                    aria-label={t('boards.delete')}
+                    onClick={(event: Event) => {
+                      event.stopPropagation();
+                      confirming.value = board.id;
+                    }}
+                  >
+                    <wa-icon name="trash" />
+                  </button>
                 </Name>
               )}
-              <Summary>{board.summary}</Summary>
+              {confirming.value === board.id ? (
+                // A question rather than a dialog: it is one board, the answer
+                // is one click, and a modal for that is theatre.
+                <Confirm onClick={(event: Event) => event.stopPropagation()}>
+                  <span>{t('boards.confirm')}</span>
+                  <button type="button" data-quiet onClick={() => (confirming.value = null)}>
+                    {t('boards.confirmNo')}
+                  </button>
+                  <button
+                    type="button"
+                    data-danger
+                    disabled={remove.running.value}
+                    onClick={() => {
+                      confirming.value = null;
+                      void remove.run(board.id);
+                    }}
+                  >
+                    {t('boards.confirmYes')}
+                  </button>
+                </Confirm>
+              ) : (
+                <Summary>{board.summary}</Summary>
+              )}
               <Count>
                 <span>{board.cardCount}</span>
                 {t('boards.cards', { count: board.cardCount })}

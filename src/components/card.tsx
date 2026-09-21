@@ -58,6 +58,30 @@ export const CardTile = component<CardProps>((props) => {
     if (event.key === 'Escape') {
       editing.value = false;
     }
+    // Enter saves, Shift+Enter is a new line — which is what a textarea would
+    // otherwise do with both.
+    if (event.key === 'Enter' && !event.shiftKey) {
+      commit(event);
+    }
+  };
+
+  /**
+   * Focus, by hand.
+   *
+   * `autofocus` is an attribute the browser honours while a document loads,
+   * and this field is inserted long after that — so it does nothing here. The
+   * element is handed over as soon as it exists, which is what `ref` is for.
+   */
+  const focusOn = (field: HTMLTextAreaElement): void => {
+    field.focus();
+    field.setSelectionRange(field.value.length, field.value.length);
+    grow(field);
+  };
+
+  /** A textarea that is exactly as tall as its text. */
+  const grow = (field: HTMLTextAreaElement): void => {
+    field.style.height = 'auto';
+    field.style.height = `${String(field.scrollHeight)}px`;
   };
 
   return (
@@ -73,11 +97,21 @@ export const CardTile = component<CardProps>((props) => {
 
       {editing.value ? (
         <Edit onSubmit={commit}>
-          <input
+          {/*
+           * A textarea, not an input: a card's title wraps onto three lines
+           * when it needs to, and editing it should not squeeze it onto one.
+           * It grows with what is typed, so the card does not either.
+           */}
+          <textarea
+            rows={1}
             value={draft.value}
-            autofocus
             aria-label={t('board.edit')}
-            onInput={(event: Event) => (draft.value = (event.target as HTMLInputElement).value)}
+            ref={focusOn}
+            onInput={(event: Event) => {
+              const field = event.target as HTMLTextAreaElement;
+              draft.value = field.value;
+              grow(field);
+            }}
             onKeyDown={key}
             onBlur={commit}
           />

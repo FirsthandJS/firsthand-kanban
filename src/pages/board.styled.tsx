@@ -80,7 +80,12 @@ export const Summary = styled.p`
   margin: 0.25rem 0 0;
 `;
 
-/** Says what the data layer is doing, because that is the thing to watch. */
+/**
+ * Says what the data layer is doing, because that is the thing to watch.
+ *
+ * One width for both states, so the header does not move when it changes, and
+ * the dot carries the change while the words stay put.
+ */
 export const Note = styled.p<{ $busy?: boolean }>`
   --note: ${(props) =>
     props.$busy === true ? 'var(--wa-color-brand-fill-loud)' : 'var(--wa-color-text-quiet)'};
@@ -91,6 +96,7 @@ export const Note = styled.p<{ $busy?: boolean }>`
   font-size: 0.8rem;
   margin: 0 0 0 auto;
   padding-top: 1.75rem;
+  white-space: nowrap;
   transition: color var(--motion) ease-out;
 
   &::before {
@@ -240,13 +246,23 @@ export const Compose = styled.form`
   }
 `;
 
+/**
+ * The kinds on one row, the buttons on the next.
+ *
+ * All five on one row overflowed a column the moment the column was narrow,
+ * which is most of the time — a column is 15.5rem and five controls are not.
+ */
 export const Kinds = styled.div`
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
   align-items: center;
   gap: 0.3rem;
 
-  span {
-    flex: 1;
+  span[data-kinds] {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
   }
 
   button {

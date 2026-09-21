@@ -97,6 +97,18 @@ export const Board = component<{ id: string }>((props) => {
   );
 
   const columns = computed(() => board.data.value?.board?.columns ?? []);
+
+  /**
+   * Focus, by hand.
+   *
+   * `autofocus` is honoured while a document loads, and every field here is
+   * inserted long after that — so the attribute does nothing and `ref` is what
+   * puts the cursor where somebody just asked for it.
+   */
+  const focusField = (field: HTMLInputElement): void => {
+    field.focus();
+    field.select();
+  };
   const busy = computed(() => move.running.value || remove.running.value || edit.running.value);
 
   const addCard = async (event: Event, columnId: string): Promise<void> => {
@@ -206,7 +218,7 @@ export const Board = component<{ id: string }>((props) => {
                   <Rename onSubmit={(event: Event) => void saveName(event)}>
                     <input
                       value={name.value}
-                      autofocus
+                      ref={focusField}
                       aria-label={t('boards.rename')}
                       onInput={(event: Event) =>
                         (name.value = (event.target as HTMLInputElement).value)
@@ -291,7 +303,7 @@ export const Board = component<{ id: string }>((props) => {
                   <Compose onSubmit={(event: Event) => void addCard(event, column.id)}>
                     <input
                       value={title.value}
-                      autofocus
+                      ref={focusField}
                       placeholder={t('board.cardPlaceholder')}
                       aria-label={t('board.cardPlaceholder')}
                       onInput={(event: Event) =>
@@ -304,17 +316,19 @@ export const Board = component<{ id: string }>((props) => {
                       }}
                     />
                     <Kinds>
-                      {(Object.keys(KIND_LABEL) as Kind[]).map((one) => (
-                        <button
-                          key={one}
-                          type="button"
-                          data-kind={one}
-                          data-active={String(kind.value === one)}
-                          onClick={() => (kind.value = one)}
-                        >
-                          {t(`kind.${one}`)}
-                        </button>
-                      ))}
+                      <span data-kinds>
+                        {(Object.keys(KIND_LABEL) as Kind[]).map((one) => (
+                          <button
+                            key={one}
+                            type="button"
+                            data-kind={one}
+                            data-active={String(kind.value === one)}
+                            onClick={() => (kind.value = one)}
+                          >
+                            {t(`kind.${one}`)}
+                          </button>
+                        ))}
+                      </span>
                       <span />
                       <button type="button" data-quiet onClick={() => (composing.value = null)}>
                         {t('board.cancel')}

@@ -164,9 +164,11 @@ it('renames a card in place', async () => {
   const view = await open();
 
   view.get<HTMLButtonElement>(`button[aria-label="${t('board.edit')}"]`).click();
-  const input = view.get<HTMLInputElement>('[data-card] input');
-  input.value = 'Write the reference';
-  input.dispatchEvent(new Event('input', { bubbles: true }));
+  // A textarea, not an input: a title that wrapped onto three lines must not
+  // be squeezed onto one to edit it.
+  const field = view.get<HTMLTextAreaElement>('[data-card] textarea');
+  field.value = 'Write the reference';
+  field.dispatchEvent(new Event('input', { bubbles: true }));
   view.get('[data-card] form').dispatchEvent(new Event('submit', { bubbles: true }));
 
   await vi.waitFor(() => {
@@ -186,6 +188,18 @@ it('renames the board from its title', async () => {
   await vi.waitFor(() => {
     expect(view.text()).toContain('Release 1.1');
   });
+});
+
+it('keeps a multi-line title on more than one line while it is edited', async () => {
+  const view = await open();
+
+  view.get<HTMLButtonElement>(`button[aria-label="${t('board.edit')}"]`).click();
+  const field = view.get<HTMLTextAreaElement>('[data-card] textarea');
+
+  expect(field.value).toBe('Write the guide');
+  // `rows` is the floor; the height is set from the content, which a
+  // single-line input has no way of doing.
+  expect(field.tagName).toBe('TEXTAREA');
 });
 
 it('deletes a card, and it leaves the screen', async () => {

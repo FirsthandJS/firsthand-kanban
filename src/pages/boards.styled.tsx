@@ -182,6 +182,10 @@ export const Name = styled.h2`
   button:hover {
     color: var(--wa-color-text-normal);
   }
+
+  button[data-delete]:hover {
+    color: var(--wa-color-danger-fill-loud);
+  }
 `;
 
 export const Rename = styled.form`
@@ -198,6 +202,49 @@ export const Rename = styled.form`
     border: 0;
     border-bottom: 2px solid var(--wa-color-brand-fill-loud);
     outline: none;
+  }
+`;
+
+/** The one question this page asks, in the space the summary occupied. */
+export const Confirm = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  margin: 0 0 0.9rem;
+  min-height: 2.55rem;
+
+  span {
+    color: var(--wa-color-text-normal);
+    margin-right: auto;
+  }
+
+  button {
+    font: inherit;
+    font-size: 0.8rem;
+    line-height: 1;
+    padding: 0.35rem 0.6rem;
+    border-radius: 7px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    opacity: 1 !important;
+    transition: background var(--motion) ease-out;
+  }
+
+  button[data-quiet] {
+    color: var(--wa-color-text-quiet);
+    background: transparent;
+    border-color: var(--wa-color-surface-border);
+  }
+
+  button[data-danger] {
+    color: var(--wa-color-danger-on-loud);
+    background: var(--wa-color-danger-fill-loud);
+  }
+
+  button[data-danger]:disabled {
+    cursor: progress;
+    opacity: 0.6 !important;
   }
 `;
 

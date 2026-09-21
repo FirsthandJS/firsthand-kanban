@@ -1,0 +1,5 @@
+mutation DeleteBoard($boardId: ID!)
+@invalidates(name: "board", id: $boardId)
+@invalidates(name: "boards") {
+  deleteBoard(boardId: $boardId)
+}

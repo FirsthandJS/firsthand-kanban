@@ -103,3 +103,28 @@ export const Main = styled.main`
   max-width: 82rem;
   margin: 0 auto;
 `;
+
+/**
+ * What a page does on arrival.
+ *
+ * `@starting-style` is the whole of it: the browser animates from these values
+ * to the element's own the first time it is rendered, which is exactly once
+ * per navigation because the router replaces what is inside the outlet. No
+ * timers, no classes added and removed, and nothing to clean up — and
+ * `--motion` is zero for a person who asked for less movement, so this costs
+ * them nothing.
+ */
+export const Page = styled.div`
+  animation: page-in calc(var(--motion) * 2.2) ease-out;
+
+  @keyframes page-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+`;
