@@ -21,6 +21,7 @@ import { Link } from '@firsthandjs/router';
 import { useBoard, useBoardActions, type Lane as LaneShape } from '@/features/board/api';
 import { createDrag } from '@/features/board/model';
 import { Lane } from '@/features/board/components/lane';
+import { Status } from '@/features/board/components/status';
 import { BoardTitle } from '@/features/board/components/title';
 import { t } from '@/shared/i18n';
 import {
@@ -28,7 +29,6 @@ import {
   Board as Frame,
   Head,
   Missing,
-  Note,
   Skeleton,
   Summary,
 } from '@/features/board/pages/board.styled';
@@ -93,9 +93,7 @@ export const Board = component<{ id: string }>((props) => {
               />
               <Summary>{board.data.value?.board?.summary}</Summary>
             </div>
-            <Note $busy={board.loading.value}>
-              {board.loading.value ? t('board.reloading') : t('board.upToDate')}
-            </Note>
+            <Status busy={board.loading.value} />
           </Head>
 
           <Frame>

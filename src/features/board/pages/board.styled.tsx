@@ -31,35 +31,6 @@ export const Summary = styled.p`
 `;
 
 /**
- * Says what the data layer is doing, because that is the thing to watch.
- *
- * One width for both states, so the header does not move when it changes, and
- * the dot carries the change while the words stay put.
- */
-export const Note = styled.p<{ $busy?: boolean }>`
-  --note: ${(props) =>
-    props.$busy === true ? 'var(--wa-color-brand-fill-loud)' : 'var(--wa-color-text-quiet)'};
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  color: var(--note);
-  font-size: 0.8rem;
-  margin: 0 0 0 auto;
-  padding-top: 1.75rem;
-  white-space: nowrap;
-  transition: color var(--motion) ease-out;
-
-  &::before {
-    content: '';
-    width: 0.45rem;
-    height: 0.45rem;
-    border-radius: 50%;
-    background: var(--note);
-    transition: background var(--motion) ease-out;
-  }
-`;
-
-/**
  * Four columns side by side, with no horizontal scrollbar on a desktop.
  *
  * `auto-fit` with `minmax` is what does it: the columns share the width they

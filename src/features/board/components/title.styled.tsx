@@ -6,6 +6,7 @@ export const Titles = styled.div`
   display: flex;
   align-items: center;
   gap: 0.4rem;
+  max-width: 100%;
 
   button[data-rename] {
     font: inherit;
@@ -33,6 +34,7 @@ export const Title = styled.h1`
   letter-spacing: -0.02em;
   margin: 0;
   cursor: text;
+  overflow-wrap: anywhere;
 `;
 
 export const Rename = styled.form`
@@ -48,5 +50,6 @@ export const Rename = styled.form`
     outline: none;
     padding: 0;
     min-width: 12rem;
+    max-width: 100%;
   }
 `;

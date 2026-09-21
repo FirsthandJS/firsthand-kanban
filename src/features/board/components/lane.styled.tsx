@@ -18,6 +18,10 @@ export const Column = styled.section<{ $over?: boolean }>`
   background: var(--tint);
   border: 1px solid var(--edge);
   border-radius: 12px;
+  /* A grid column is one fraction wide, and a fraction is min-content by
+     default: without this, one long word makes its lane — and with it every
+     lane — wider. */
+  min-width: 0;
   transition:
     background var(--motion) ease-out,
     border-color var(--motion) ease-out;

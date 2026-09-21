@@ -2,28 +2,32 @@
  * One card: draggable, editable in place, and buttons that appear when you are
  * near it.
  *
- * Two things here are worth reading rather than skimming.
+ * Editing is the part worth reading.
  *
- * **Editing is a signal, not a mode.** `editing` flips, the title becomes an
- * input, and the only thing that changes on screen is that one node — the
- * column around it, the cards beside it and the board's scroll position are
- * untouched, because nothing re-rendered.
+ * **It ends on purpose, never by accident.** Enter and the check save, Escape
+ * and the cross cancel, and clicking away does *neither* — it leaves the field
+ * open. Saving on blur meant the only way to keep a change was to guess where
+ * to click, and the only way to discard one was to remember what it said.
  *
- * **Dragging is the platform's.** `draggable` plus three handlers; no library,
- * no pointer arithmetic, and the browser draws the drag image. The arrows stay
- * for the keyboard, which is not a fallback so much as the other half of the
- * feature.
+ * **The new title is on screen before the server has answered.** The board
+ * reloads after the mutation, and until it does, `pending` is what is shown —
+ * otherwise a card flashes back to its old text for as long as the round trip
+ * takes.
+ *
+ * **A textarea's value is its content, not an attribute.** It is set through
+ * the element itself, which is also where the focus and the first measurement
+ * happen.
  */
-import { component, signal } from '@firsthandjs/dom';
+import { component, computed, signal } from '@firsthandjs/dom';
 import { t } from '@/shared/i18n';
 import type { Kind } from '@/shared/ui/theme';
-import { Actions, Edit, Marker, Tile, Title } from '@/features/board/components/card.styled';
+import { Actions, Edit, Marker, Tile, Title } from './card.styled';
 
 export type CardProps = {
   readonly id: string;
   readonly title: string;
   readonly kind: Kind;
-  /** In the first column: there is nothing to its left. */
+  /** In the first lane: there is nothing to its left. */
   readonly first: boolean;
   readonly last: boolean;
   readonly busy: boolean;
@@ -39,49 +43,70 @@ export type CardProps = {
 export const CardTile = component<CardProps>((props) => {
   const editing = signal(false);
   const draft = signal('');
+  /** What was just saved, until the board comes back carrying it. */
+  const pending = signal<string | null>(null);
+
+  const shown = computed(() => {
+    const saved = pending.value;
+    if (saved === null) {
+      return props.title;
+    }
+    // The answer arrived: stop shadowing it.
+    return props.title === saved ? ((pending.value = null), saved) : saved;
+  });
 
   const start = (): void => {
-    draft.value = props.title;
+    draft.value = shown.peek();
     editing.value = true;
   };
 
-  const commit = (event: Event): void => {
-    event.preventDefault();
-    const next = draft.value.trim();
+  const save = (): void => {
+    const next = draft.peek().trim();
     editing.value = false;
-    if (next !== '' && next !== props.title) {
+    if (next !== '' && next !== shown.peek()) {
+      pending.value = next;
       props.onRename(next);
     }
   };
 
+  const cancel = (): void => {
+    editing.value = false;
+  };
+
   const key = (event: KeyboardEvent): void => {
     if (event.key === 'Escape') {
-      editing.value = false;
+      cancel();
     }
     // Enter saves, Shift+Enter is a new line — which is what a textarea would
     // otherwise do with both.
     if (event.key === 'Enter' && !event.shiftKey) {
-      commit(event);
+      event.preventDefault();
+      save();
     }
   };
 
   /**
-   * Focus, by hand.
+   * The field, as soon as it exists.
    *
-   * `autofocus` is an attribute the browser honours while a document loads,
-   * and this field is inserted long after that — so it does nothing here. The
-   * element is handed over as soon as it exists, which is what `ref` is for.
+   * A textarea holds its value as content rather than as an attribute, so it
+   * is written here. `autofocus` is honoured while a *document* loads and does
+   * nothing for an element inserted afterwards, so the focus is here too — in
+   * an animation frame, because the button that was just clicked takes the
+   * focus back otherwise.
    */
-  const focusOn = (field: HTMLTextAreaElement): void => {
-    field.focus();
-    field.setSelectionRange(field.value.length, field.value.length);
+  const open = (field: HTMLTextAreaElement): void => {
+    field.value = draft.peek();
     grow(field);
+    requestAnimationFrame(() => {
+      field.focus();
+      field.setSelectionRange(field.value.length, field.value.length);
+    });
   };
 
-  /** A textarea that is exactly as tall as its text. */
+  /** A textarea exactly as tall as its text, and never shorter than one line. */
   const grow = (field: HTMLTextAreaElement): void => {
     field.style.height = 'auto';
-    field.style.height = `${String(field.scrollHeight)}px`;
+    field.style.height = `${String(Math.max(field.scrollHeight, 20))}px`;
   };
 
   return (
@@ -96,31 +121,37 @@ export const CardTile = component<CardProps>((props) => {
       <Marker>{t(`board.kinds.${props.kind}`)}</Marker>
 
       {editing.value ? (
-        <Edit onSubmit={commit}>
-          {/*
-           * A textarea, not an input: a card's title wraps onto three lines
-           * when it needs to, and editing it should not squeeze it onto one.
-           * It grows with what is typed, so the card does not either.
-           */}
+        <Edit
+          onSubmit={(event: Event) => {
+            event.preventDefault();
+            save();
+          }}
+        >
           <textarea
             rows={1}
-            value={draft.value}
+            ref={open}
             aria-label={t('board.edit')}
-            ref={focusOn}
             onInput={(event: Event) => {
               const field = event.target as HTMLTextAreaElement;
               draft.value = field.value;
               grow(field);
             }}
             onKeyDown={key}
-            onBlur={commit}
           />
+          <span data-actions>
+            <button type="button" data-cancel aria-label={t('board.cancel')} onClick={cancel}>
+              ✕
+            </button>
+            <button type="submit" data-save aria-label={t('board.save')}>
+              ✓
+            </button>
+          </span>
         </Edit>
       ) : (
-        <Title onDblClick={start}>{props.title}</Title>
+        <Title onDblClick={start}>{shown.value}</Title>
       )}
 
-      <Actions>
+      <Actions data-hidden={String(editing.value)}>
         <button
           type="button"
           aria-label={t('board.moveLeft')}
@@ -137,7 +168,15 @@ export const CardTile = component<CardProps>((props) => {
         >
           →
         </button>
-        <button type="button" aria-label={t('board.edit')} disabled={props.busy} onClick={start}>
+        <button
+          type="button"
+          aria-label={t('board.edit')}
+          disabled={props.busy}
+          // The button keeps the focus otherwise, and the field it just opened
+          // would sit there empty-looking and unfocused.
+          onPointerDown={(event: PointerEvent) => event.preventDefault()}
+          onClick={start}
+        >
           <wa-icon name="pencil" />
         </button>
         <button

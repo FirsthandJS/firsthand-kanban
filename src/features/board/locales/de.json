@@ -16,5 +16,6 @@
     "FEATURE": "Feature",
     "BUG": "Fehler",
     "CHORE": "Aufgabe"
-  }
+  },
+  "save": "Speichern"
 }

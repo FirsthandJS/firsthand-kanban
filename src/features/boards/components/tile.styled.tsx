@@ -44,6 +44,7 @@ export const Name = styled.h2`
   gap: 0.35rem;
   font-size: 1.02rem;
   margin: 0 0 0.3rem;
+  overflow-wrap: anywhere;
 
   button {
     font: inherit;
@@ -132,6 +133,7 @@ export const Confirm = styled.div`
 export const Summary = styled.p`
   color: var(--wa-color-text-quiet);
   font-size: 0.88rem;
+  overflow-wrap: anywhere;
   line-height: 1.45;
   margin: 0 0 0.9rem;
 `;

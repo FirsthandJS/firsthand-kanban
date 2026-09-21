@@ -41,8 +41,8 @@ export const Tile = styled.article<{ $kind: Kind; $dragging?: boolean }>`
     cursor: grabbing;
   }
 
-  &:hover button,
-  &:focus-within button {
+  &:hover [data-hidden='false'] button,
+  &:focus-within [data-hidden='false'] button {
     opacity: 1;
   }
 
@@ -66,6 +66,11 @@ export const Marker = styled.span`
 
 export const Title = styled.p`
   margin: 0;
+  /* A title is somebody's text: it wraps, and a word longer than the card
+     breaks rather than escaping it. */
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+
   font-size: 0.95rem;
   line-height: 1.35;
   cursor: text;
@@ -74,6 +79,39 @@ export const Title = styled.p`
 /** The same box the title occupied, so editing does not move anything. */
 export const Edit = styled.form`
   margin: 0;
+  display: grid;
+  gap: 0.35rem;
+
+  span[data-actions] {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.25rem;
+  }
+
+  button {
+    font: inherit;
+    font-size: 0.85rem;
+    line-height: 1;
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    border: 1px solid var(--wa-color-surface-border);
+    background: transparent;
+    color: var(--wa-color-text-quiet);
+    cursor: pointer;
+    transition:
+      color var(--motion) ease-out,
+      background var(--motion) ease-out;
+  }
+
+  button[data-save] {
+    color: var(--wa-color-brand-on-loud);
+    background: var(--kind);
+    border-color: transparent;
+  }
+
+  button[data-cancel]:hover {
+    color: var(--wa-color-text-normal);
+  }
 
   textarea {
     font: inherit;
@@ -89,6 +127,10 @@ export const Edit = styled.form`
     resize: none;
     overflow: hidden;
     display: block;
+    /* The same rules as the title above it, so editing does not reflow the
+       card and a long word breaks in both. */
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
   }
 `;
 
@@ -99,7 +141,10 @@ export const Edit = styled.form`
  * anybody was looking at them, which made a two-line card as tall as a
  * four-line one. Absolute, they cost nothing until they are wanted.
  */
-export const Actions = styled.div`
+export const Actions = styled.div<{ 'data-hidden'?: string }>`
+  /* Hidden outright while the card is being edited: the save and cancel
+     buttons are the only two that mean anything then. */
+  display: ${(props) => (props['data-hidden'] === 'true' ? 'none' : 'flex')};
   position: absolute;
   top: 0.35rem;
   right: 0.35rem;
