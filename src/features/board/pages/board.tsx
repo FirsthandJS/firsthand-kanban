@@ -17,11 +17,19 @@
  * invalidation, so moving a card reloads this board — and only this board.
  *
  * **The four states are four early returns.** The setup returns a render
- * function, which is a reactive scope of its own: the status is read in a
+ * function, which is a reactive scope of its own: the state is read in a
  * statement, so changing it runs this function again — and only this
  * function. Everything else on the page reads the resource inside the markup,
  * so the title, the summary and the lanes are parts that update without the
  * choice above them being made again.
+ *
+ * **What the run reads is the choice, not the data.** `state` is a `computed`
+ * of four names. A reload answers with a new board every time, and this run
+ * does not hear about it — the answer is the same name, so nothing above the
+ * parts happens at all. Reading `board.data.value` here instead would run
+ * this function on every answer, and a run that happens again makes its
+ * fragment again: new lanes, new cards, a rebuilt page for a card that moved
+ * one column.
  */
 import { component, computed } from '@firsthandjs/dom';
 import { Link } from '@firsthandjs/router';
@@ -40,9 +48,22 @@ import {
   Summary,
 } from '@/features/board/pages/board.styled';
 
+/** The four things this page can be, as one value. */
+type State = 'loading' | 'error' | 'missing' | 'board';
+
 export const Board = component<{ id: string }>((props) => {
   const board = useBoard(() => props.id);
   const lanes = computed<readonly LaneShape[]>(() => board.data.value?.board?.columns ?? []);
+  const state = computed<State>(() => {
+    const status = board.status.value;
+    if (status === 'loading') {
+      return 'loading';
+    }
+    if (status === 'error') {
+      return 'error';
+    }
+    return board.data.value?.board == null ? 'missing' : 'board';
+  });
   const actions = useBoardActions(
     () => props.id,
     () => lanes.value,
@@ -50,9 +71,11 @@ export const Board = component<{ id: string }>((props) => {
   const drag = createDrag();
 
   return () => {
-    const status = board.status.value;
+    // One read, of a name rather than of the board: a reload that answers
+    // with the same name does not reach this function at all.
+    const showing = state.value;
 
-    if (status === 'loading') {
+    if (showing === 'loading') {
       return (
         <Skeleton aria-hidden="true">
           {[0, 1, 2, 3].map((lane) => (
@@ -67,11 +90,11 @@ export const Board = component<{ id: string }>((props) => {
       );
     }
 
-    if (status === 'error') {
+    if (showing === 'error') {
       return <wa-callout variant="danger">{(board.error.value as Error).message}</wa-callout>;
     }
 
-    if (board.data.value?.board == null) {
+    if (showing === 'missing') {
       return (
         <Missing>
           <p>

@@ -59,6 +59,16 @@ the summary and the lanes below them read the resource inside the markup, so
 they are parts of their own and update without the choice above them being
 made again. Where you put the read is how you choose.
 
+**And what such a run reads is the choice, not the data.** The board's four
+states are a `computed` of four names, and the run reads that. A reload
+answers with a new board every time; the name is the same, so the run does not
+happen at all. Reading `board.data.value` in the run instead would make it
+happen on every answer — and a run that happens again makes its markup again,
+which is four new lanes and eight new cards for a card that moved one column.
+Measured, on that move: with the computed, one card element is replaced and
+the other seven, the four lanes and the frame around them are the elements
+that were already there; without it, all thirteen are new.
+
 **Authentication is two functions.** `headers` is read per request — so a token
 that changes is the current one, and no resource depends on it — and `fetch`
 wraps the request, which is where a 401 ends the session. urql has exchanges
