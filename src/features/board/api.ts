@@ -50,16 +50,30 @@ export function useBoardActions(id: BoardId, lanes: () => readonly Lane[]) {
       graphql.mutate(MoveCardDocument, { boardId: id(), ...input })(request),
   );
 
-  const edit = useAction((input: { cardId: string; title: string }, { request }) =>
-    graphql.mutate(EditCardDocument, { boardId: id(), ...input })(request),
+  /**
+   * Renaming a card supersedes itself, so it says so.
+   *
+   * `switch` aborts whatever was in flight, which is right here and wrong
+   * almost everywhere else: the title is one value, a later one replaces an
+   * earlier one, and nothing accumulates. Since 0.11 the default is `queue` —
+   * the policy that cannot lose a write — so this is a sentence at the call
+   * site rather than a property of the framework (ADR-0029).
+   */
+  const edit = useAction(
+    (input: { cardId: string; title: string }, { request }) =>
+      graphql.mutate(EditCardDocument, { boardId: id(), ...input })(request),
+    { concurrency: 'switch' },
   );
 
   const remove = useAction((cardId: string, { request }) =>
     graphql.mutate(DeleteCardDocument, { boardId: id(), cardId })(request),
   );
 
-  const rename = useAction((name: string, { request }) =>
-    graphql.mutate(RenameBoardDocument, { boardId: id(), name })(request),
+  /** A board's name is one value too, so the last one typed wins. */
+  const rename = useAction(
+    (name: string, { request }) =>
+      graphql.mutate(RenameBoardDocument, { boardId: id(), name })(request),
+    { concurrency: 'switch' },
   );
 
   return {
@@ -104,12 +118,12 @@ export function useBoardActions(id: BoardId, lanes: () => readonly Lane[]) {
     },
 
     /**
-      * Renames a card, unless the title is empty or unchanged.
-      *
-      * Answers whether the new title is now the truth: a card shows what was
-      * typed while the mutation is out, and has to know to put it back if it
-      * fails. Nothing to do is `true` — there is nothing to put back.
-      */
+     * Renames a card, unless the title is empty or unchanged.
+     *
+     * Answers whether the new title is now the truth: a card shows what was
+     * typed while the mutation is out, and has to know to put it back if it
+     * fails. Nothing to do is `true` — there is nothing to put back.
+     */
     edit: async (cardId: string, title: string, current: string): Promise<boolean> => {
       const wanted = title.trim();
       if (wanted === '' || wanted === current) {

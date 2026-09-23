@@ -27,12 +27,22 @@ export function useBoards() {
 }
 
 export function useBoardActions() {
+  /**
+   * Creating accumulates, so it queues.
+   *
+   * That is the default since 0.11, and it is written out here because the
+   * one beside it is not: two quick submits must make two boards in the order
+   * they were asked for, where two quick renames must make one.
+   */
   const create = useAction((name: string, { request }) =>
     graphql.mutate(CreateBoardDocument, { name })(request),
   );
 
-  const rename = useAction((input: { boardId: string; name: string }, { request }) =>
-    graphql.mutate(RenameBoardDocument, input)(request),
+  /** One name, latest wins: see the note on the board's own rename. */
+  const rename = useAction(
+    (input: { boardId: string; name: string }, { request }) =>
+      graphql.mutate(RenameBoardDocument, input)(request),
+    { concurrency: 'switch' },
   );
 
   const remove = useAction((boardId: string, { request }) =>

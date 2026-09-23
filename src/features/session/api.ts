@@ -27,15 +27,27 @@ export type Credentials = {
  * looked like it worked.
  */
 export function useSignIn() {
-  const logIn = useAction((input: Credentials, { request }) =>
-    graphql.mutate(LogInDocument, {
-      email: input.email,
-      password: input.password,
-    })(request),
+  /**
+   * A submitted form is not submitted twice.
+   *
+   * `drop` hands the second caller the promise of the run already going, so a
+   * double-clicked button — or an Enter that arrives while the click is still
+   * out — cannot register two accounts or open two sessions. Neither caller
+   * has to special-case having been ignored, because both are told the same
+   * answer (ADR-0029).
+   */
+  const logIn = useAction(
+    (input: Credentials, { request }) =>
+      graphql.mutate(LogInDocument, {
+        email: input.email,
+        password: input.password,
+      })(request),
+    { concurrency: 'drop' },
   );
 
-  const register = useAction((input: Credentials, { request }) =>
-    graphql.mutate(RegisterDocument, input)(request),
+  const register = useAction(
+    (input: Credentials, { request }) => graphql.mutate(RegisterDocument, input)(request),
+    { concurrency: 'drop' },
   );
 
   return {
